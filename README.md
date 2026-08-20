@@ -1,8 +1,8 @@
-# Anima Webhook Interceptor & Synthetic Replay Studio (`anima/anima`)
+# Anima Webhook Interceptor & Synthetic Replay Studio (`ninjadd/anima`)
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/anima/anima.svg?style=flat-square)](https://packagist.org/packages/anima/anima)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/ninjadd/anima.svg?style=flat-square)](https://packagist.org/packages/ninjadd/anima)
 [![Latest Tag](https://img.shields.io/github/v/tag/ninjadd/anima?label=tag&style=flat-square)](https://github.com/ninjadd/anima/tags)
-[![Total Downloads](https://img.shields.io/packagist/dt/anima/anima.svg?style=flat-square)](https://packagist.org/packages/anima/anima)
+[![Total Downloads](https://img.shields.io/packagist/dt/ninjadd/anima.svg?style=flat-square)](https://packagist.org/packages/ninjadd/anima)
 [![Tests Passing](https://img.shields.io/badge/Tests-34%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
 [![License](https://img.shields.io/github/license/ninjadd/anima?style=flat-square)](LICENSE)
 [![Laravel Support](https://img.shields.io/badge/Laravel-10_%7C_11_%7C_12_%7C_13%2B-red.svg?style=flat-square)](https://laravel.com)
@@ -92,7 +92,7 @@ Designed for modern API development, Anima includes built-in cryptographic signa
 Install the package via Composer:
 
 ```bash
-composer require anima/anima
+composer require ninjadd/anima
 ```
 
 Publish the package configuration file:

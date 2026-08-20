@@ -1,5 +1,5 @@
 {
-    "name": "anima/anima",
+    "name": "ninjadd/anima",
     "description": "Reactive webhook interceptor and synthetic request replay studio for Laravel.",
     "keywords": [
         "laravel",
