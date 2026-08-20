@@ -1,0 +1,58 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: anima_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pgsql:
+    image: postgres:16-alpine
+    container_name: anima_pgsql
+    environment:
+      POSTGRES_DB: anima_testing
+      POSTGRES_USER: anima
+      POSTGRES_PASSWORD: secret_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anima -d anima_testing"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mysql:
+    image: mysql:8.0
+    container_name: anima_mysql
+    environment:
+      MYSQL_DATABASE: anima_testing
+      MYSQL_USER: anima
+      MYSQL_PASSWORD: secret_password
+      MYSQL_ROOT_PASSWORD: root_secret_password
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mariadb:
+    image: mariadb:11
+    container_name: anima_mariadb
+    environment:
+      MARIADB_DATABASE: anima_testing
+      MARIADB_USER: anima
+      MARIADB_PASSWORD: secret_password
+      MARIADB_ROOT_PASSWORD: root_secret_password
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 3s
+      retries: 5

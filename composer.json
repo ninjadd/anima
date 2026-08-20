@@ -1,0 +1,50 @@
+{
+    "name": "ninjadd/anima",
+    "description": "Reactive webhook interceptor and synthetic request replay studio for Laravel.",
+    "keywords": [
+        "laravel",
+        "webhook",
+        "interceptor",
+        "replay",
+        "synthetic-requests",
+        "workbench",
+        "testing",
+        "api"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "ninjadd",
+            "role": "Developer"
+        }
+    ],
+    "homepage": "https://github.com/ninjadd/anima",
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0",
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Anima\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Anima\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Anima\\AnimaServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

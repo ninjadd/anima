@@ -1,0 +1,9 @@
+/vendor/
+/node_modules/
+/dummy-app/vendor/
+/dummy-app/composer.lock
+composer.lock
+.phpunit.result.cache
+.phpunit.cache
+.env
+.DS_Store

@@ -1,0 +1,38 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('anima_entries', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('method', 10);
+            $table->text('uri');
+            $table->json('headers');
+            $table->longText('payload')->nullable();
+            $table->integer('response_status')->nullable();
+            $table->longText('response_body')->nullable();
+            $table->float('duration_ms', 8, 2)->nullable();
+            $table->boolean('is_synthetic')->default(false);
+            $table->json('tags')->nullable();
+            $table->timestamps();
+
+            $table->index(['created_at', 'method']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('anima_entries');
+    }
+};
