@@ -1,11 +1,11 @@
 <template>
-  <div v-if="store.activeEntry" class="h-full flex flex-col bg-slate-950 overflow-hidden relative">
+  <div v-if="store.activeEntry" class="h-full flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden relative transition-colors">
     <!-- Top Action Bar -->
-    <div class="p-4 border-b border-slate-800 bg-slate-900/40 flex items-center justify-between gap-4">
+    <div class="p-4 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 flex items-center justify-between gap-4">
       <div class="flex-1 flex items-center gap-2">
         <select
           v-model="replayMethod"
-          class="px-3 py-1.5 text-xs font-mono font-bold bg-slate-900 border border-slate-700 rounded-md text-indigo-400 focus:outline-none focus:border-indigo-500"
+          class="px-3 py-1.5 text-xs font-mono font-bold bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-indigo-600 dark:text-indigo-400 focus:outline-none focus:border-indigo-500"
         >
           <option value="POST">POST</option>
           <option value="GET">GET</option>
@@ -17,7 +17,7 @@
         <input
           v-model="replayUri"
           type="text"
-          class="flex-1 px-3 py-1.5 text-xs font-mono bg-slate-900 border border-slate-700 rounded-md text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-600"
+          class="flex-1 px-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md text-slate-900 dark:text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-400 dark:placeholder-slate-600"
           placeholder="/api/webhooks/endpoint or https://..."
         />
       </div>
@@ -49,7 +49,7 @@
           v-if="store.lastReplayResult"
           type="button"
           @click="showResultModal = true"
-          class="px-3 py-1.5 text-xs font-mono font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center space-x-1.5"
+          class="px-3 py-1.5 text-xs font-mono font-medium rounded-md bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center space-x-1.5"
           title="Open Replay Result Slide-Over"
         >
           <span
@@ -62,7 +62,7 @@
         <button
           type="button"
           @click="store.deleteEntry(store.activeEntry.id)"
-          class="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
+          class="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
           title="Delete Entry"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,7 +73,7 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="px-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/20 text-xs">
+    <div class="px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/40 dark:bg-slate-900/20 text-xs">
       <div class="flex items-center space-x-4">
         <button
           v-for="tab in tabs"
@@ -82,22 +82,22 @@
           :class="[
             'py-2.5 font-medium border-b-2 transition -mb-px flex items-center space-x-1.5',
             activeTab === tab.id
-              ? 'text-indigo-400 border-indigo-500'
-              : 'text-slate-400 border-transparent hover:text-slate-200'
+              ? 'text-indigo-600 dark:text-indigo-400 border-indigo-600 dark:border-indigo-500'
+              : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-900 dark:hover:text-slate-200'
           ]"
         >
           <span>{{ tab.label }}</span>
           <span
             v-if="tab.badge !== undefined && tab.badge !== null"
-            class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 font-mono"
+            class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono"
           >
             {{ tab.badge }}
           </span>
         </button>
       </div>
 
-      <div class="text-[11px] text-slate-500 font-mono">
-        ID: <span class="text-slate-400">{{ store.activeEntry.id.substring(0, 8) }}...</span>
+      <div class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
+        ID: <span class="text-slate-600 dark:text-slate-400">{{ store.activeEntry.id.substring(0, 8) }}...</span>
       </div>
     </div>
 
@@ -124,13 +124,13 @@
       <div v-show="activeTab === 'response'" class="space-y-4">
         <div class="flex items-center space-x-3 text-xs">
           <div class="flex items-center space-x-1.5">
-            <span class="text-slate-500">Status:</span>
+            <span class="text-slate-500 dark:text-slate-400">Status:</span>
             <span
               :class="[
                 'font-mono font-bold px-2 py-0.5 rounded text-xs',
                 (store.activeEntry.response_status || 200) >= 200 && (store.activeEntry.response_status || 200) < 300
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
               ]"
             >
               {{ store.activeEntry.response_status || 'N/A' }}
@@ -138,12 +138,12 @@
           </div>
 
           <div v-if="store.activeEntry.duration_ms" class="flex items-center space-x-1.5">
-            <span class="text-slate-500">Duration:</span>
-            <span class="font-mono text-slate-300">{{ store.activeEntry.duration_ms }} ms</span>
+            <span class="text-slate-500 dark:text-slate-400">Duration:</span>
+            <span class="font-mono text-slate-800 dark:text-slate-300 font-semibold">{{ store.activeEntry.duration_ms }} ms</span>
           </div>
         </div>
 
-        <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-300 overflow-x-auto">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 font-mono text-xs text-slate-800 dark:text-slate-300 overflow-x-auto">
           <pre>{{ formatResponseBody(store.activeEntry.response_body) }}</pre>
         </div>
       </div>
@@ -158,12 +158,12 @@
   </div>
 
   <!-- Empty State -->
-  <div v-else class="h-full flex flex-col items-center justify-center text-slate-500 p-8 text-center">
-    <svg class="w-12 h-12 mb-3 stroke-1 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-8 text-center bg-slate-100 dark:bg-slate-950">
+    <svg class="w-12 h-12 mb-3 stroke-1 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
     </svg>
-    <p class="text-sm font-medium text-slate-400">Select an Intercepted Webhook</p>
-    <p class="text-xs mt-1 text-slate-600 max-w-sm">
+    <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Select an Intercepted Webhook</p>
+    <p class="text-xs mt-1 text-slate-500 dark:text-slate-600 max-w-sm">
       Choose an event from the feed on the left to inspect its headers, modify its JSON body in Monaco, and test replays.
     </p>
   </div>

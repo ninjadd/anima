@@ -10,6 +10,17 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
 
+    <script>
+        (function() {
+            var theme = localStorage.getItem('anima-theme');
+            if (theme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
     @php
         $path = config('anima.path', 'anima');
         $cssUrl = file_exists(public_path('vendor/anima/app.css'))
@@ -30,7 +41,7 @@
         ]) !!};
     </script>
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased font-sans">
+<body class="bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased font-sans transition-colors duration-150">
     <div id="app"></div>
 
     <script type="module" src="{{ $jsUrl }}"></script>

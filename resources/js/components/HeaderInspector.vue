@@ -1,8 +1,8 @@
 <template>
-  <div class="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden flex flex-col">
+  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden flex flex-col transition-colors">
     <!-- Header Toolbar -->
-    <div class="px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between text-xs">
-      <div class="flex items-center space-x-2 font-medium text-slate-300">
+    <div class="px-4 py-2.5 bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+      <div class="flex items-center space-x-2 font-medium text-slate-700 dark:text-slate-300">
         <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
         <span>Request Headers ({{ headerRows.length }})</span>
       </div>
@@ -11,7 +11,7 @@
         <button
           type="button"
           @click="addHeaderRow"
-          class="px-2.5 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 hover:text-indigo-300 font-medium transition flex items-center space-x-1"
+          class="px-2.5 py-1 rounded bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-medium transition flex items-center space-x-1"
         >
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -23,7 +23,7 @@
           v-if="hasChanges"
           type="button"
           @click="resetToOriginal"
-          class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition"
+          class="px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition"
           title="Reset headers to original captured values"
         >
           Reset
@@ -43,7 +43,7 @@
           @input="emitHeaders"
           type="text"
           placeholder="Header Key (e.g. Authorization)"
-          class="w-2/5 px-3 py-1.5 text-xs font-mono bg-slate-950 border border-slate-800 rounded text-indigo-400 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+          class="w-2/5 px-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded text-indigo-600 dark:text-indigo-400 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500"
         />
 
         <input
@@ -51,13 +51,13 @@
           @input="emitHeaders"
           type="text"
           placeholder="Header Value"
-          class="flex-1 px-3 py-1.5 text-xs font-mono bg-slate-950 border border-slate-800 rounded text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+          class="flex-1 px-3 py-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-indigo-500"
         />
 
         <button
           type="button"
           @click="removeHeaderRow(index)"
-          class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition opacity-60 group-hover:opacity-100"
+          class="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded transition opacity-60 group-hover:opacity-100"
           title="Remove header"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,7 +68,7 @@
 
       <div
         v-if="headerRows.length === 0"
-        class="py-8 text-center text-xs text-slate-500 font-mono"
+        class="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-mono"
       >
         No headers set. Click "Add Header" above to include custom headers.
       </div>

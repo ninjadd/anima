@@ -1,0 +1,9 @@
+env:
+  ANIMA_ENABLED: true
+  ANIMA_STORAGE_DRIVER: sqlite
+  ANIMA_SQLITE_PATH: storage/anima/anima.sqlite
+
+workbench:
+  start: /anima
+  routes:
+    web: workbench/routes/web.php

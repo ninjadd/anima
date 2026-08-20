@@ -1,15 +1,15 @@
 <template>
-  <div class="relative w-full h-full flex flex-col bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-    <div class="h-9 px-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+  <div class="relative w-full h-full flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden transition-colors">
+    <div class="h-9 px-4 bg-slate-100 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
       <div class="flex items-center space-x-2 font-mono">
         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-        <span>Payload Editor (JSON)</span>
+        <span class="font-medium text-slate-700 dark:text-slate-300">Payload Editor (JSON)</span>
       </div>
       <div class="flex items-center space-x-2">
         <button
           type="button"
           @click="formatDocument"
-          class="px-2 py-0.5 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+          class="px-2 py-0.5 rounded text-xs bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
           title="Format JSON"
         >
           Format
@@ -57,15 +57,23 @@ const stringifyValue = (val) => {
   return String(val);
 };
 
+const handleThemeChange = (e) => {
+  const isDark = e.detail?.isDark ?? document.documentElement.classList.contains('dark');
+  if (editorInstance) {
+    monaco.editor.setTheme(isDark ? 'vs-dark' : 'vs');
+  }
+};
+
 onMounted(() => {
   if (!editorContainer.value) return;
 
   const initialContent = stringifyValue(props.modelValue);
+  const isDark = document.documentElement.classList.contains('dark');
 
   editorInstance = monaco.editor.create(editorContainer.value, {
     value: initialContent,
     language: props.language,
-    theme: 'vs-dark',
+    theme: isDark ? 'vs-dark' : 'vs',
     readOnly: props.readOnly,
     automaticLayout: true,
     minimap: { enabled: false },
@@ -85,6 +93,8 @@ onMounted(() => {
     emit('update:modelValue', value);
     emit('change', value);
   });
+
+  window.addEventListener('anima-theme-changed', handleThemeChange);
 });
 
 watch(
@@ -136,6 +146,7 @@ defineExpose({
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('anima-theme-changed', handleThemeChange);
   if (editorInstance) {
     editorInstance.dispose();
     editorInstance = null;
