@@ -5,7 +5,7 @@ always_on: true
 
 # Release, Pull Request & Tagging Standards (Packagist.org)
 
-This rule defines the standardized release, pull request, and semantic versioning workflow for `ninjadd/anima`.
+This rule defines the standardized release, pull request, and semantic versioning workflow for `scry/anima`.
 
 ---
 
