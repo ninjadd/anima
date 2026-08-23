@@ -1,11 +1,11 @@
 {
-    "name": "ninjadd/anima-dummy-app",
+    "name": "scry/anima-dummy-app",
     "description": "Dummy Laravel application for testing Anima package integration.",
     "type": "project",
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "ninjadd/anima": "*@dev"
+        "scry/anima": "*@dev"
     },
     "repositories": [
         {
