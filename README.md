@@ -3,7 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
 [![Latest Tag](https://img.shields.io/github/v/tag/ninjadd/anima?label=tag&style=flat-square)](https://github.com/ninjadd/anima/tags)
 [![Total Downloads](https://img.shields.io/packagist/dt/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
-[![Tests Passing](https://img.shields.io/badge/Tests-34%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
+[![Tests Passing](https://img.shields.io/badge/Tests-44%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
 [![License](https://img.shields.io/github/license/ninjadd/anima?style=flat-square)](LICENSE)
 [![Laravel Support](https://img.shields.io/badge/Laravel-10_%7C_11_%7C_12_%7C_13%2B-red.svg?style=flat-square)](https://laravel.com)
 [![PHP Version](https://img.shields.io/badge/PHP-8.2_%7C_8.3_%7C_8.4_%7C_8.5-blue.svg?style=flat-square)](https://php.net)
@@ -152,6 +152,54 @@ return [
     */
     'middleware' => [
         'web',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Allowed Environments
+    |--------------------------------------------------------------------------
+    | Safe-by-default environment constraints. Access in other environments
+    | requires registering an Anima::auth(Closure) gate.
+    */
+    'allowed_environments' => ['local', 'testing'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redacted Headers
+    |--------------------------------------------------------------------------
+    | Header names whose values should be replaced with "[REDACTED]".
+    */
+    'redact_headers' => [
+        'authorization',
+        'cookie',
+        'set-cookie',
+        'x-api-key',
+        'x-csrf-token',
+        'x-xsrf-token',
+        'stripe-signature',
+        'x-hub-signature',
+        'x-hub-signature-256',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Replay Destination Restrictions
+    |--------------------------------------------------------------------------
+    | Restrict replays to routes carrying the anima.capture middleware.
+    */
+    'replay' => [
+        'restrict_to_captured_routes' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limits
+    |--------------------------------------------------------------------------
+    | Throttling limits applied to purge and replay endpoints.
+    */
+    'rate_limits' => [
+        'replay' => '30,1',
+        'purge' => '10,1',
     ],
 
     /*
@@ -363,12 +411,15 @@ Run the PHPUnit test suite:
 ./vendor/bin/phpunit
 ```
 
-All 34 tests (195 assertions) verify:
+All 44 tests (216 assertions) verify:
 - Storage drivers (`DatabaseStorageDriver`, `SqliteStorageDriver`, `RedisStorageDriver`) and `StorageManager`.
 - Webhook capture middleware with route tags and synthetic replay loop prevention.
-- Kernel request synthesizer in-memory dispatch and metric tracking.
+- Kernel request synthesizer in-memory dispatch, metric tracking, and request singleton restoration.
 - Signature bypassing safety checks and environment guards.
 - Workbench HTTP controllers, Blade templates, asset streaming, and REST API endpoints.
+- Authorization gate defaults (`Anima::auth()`, default-deny in production, allowed environments).
+- Sensitive header redaction and safe replay destination verification.
+- SQLite table identifier safety and endpoint rate limiting.
 
 ---
 
