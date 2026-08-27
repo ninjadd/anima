@@ -15,9 +15,26 @@ class SqliteStorageDriver extends DatabaseStorageDriver
         protected string $databasePath,
         string $table = 'anima_entries'
     ) {
+        $this->assertValidTableName($table);
+
         $connection = $this->resolveSqliteConnection($this->databasePath);
         parent::__construct($connection, $table);
         $this->ensureTableExists();
+    }
+
+    /**
+     * Ensure the table name is a safe SQL identifier before it's interpolated
+     * into raw SQL in ensureTableExists().
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function assertValidTableName(string $table): void
+    {
+        if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $table)) {
+            throw new \InvalidArgumentException(
+                "Invalid Anima SQLite table name [{$table}]. Table names must start with a letter or underscore and contain only letters, numbers, and underscores."
+            );
+        }
     }
 
     /**

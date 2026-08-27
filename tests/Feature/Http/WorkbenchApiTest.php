@@ -141,7 +141,7 @@ class WorkbenchApiTest extends TestCase
                 'received' => true,
                 'echo' => $request->all(),
             ], 200);
-        });
+        })->middleware('anima.capture');
 
         $response = $this->postJson('/anima/api/replay', [
             'uri' => '/api/test-receiver',
@@ -157,5 +157,27 @@ class WorkbenchApiTest extends TestCase
         $body = json_decode($response->json('body'), true);
         $this->assertTrue($body['received']);
         $this->assertSame('pong', $body['echo']['ping']);
+    }
+
+    #[Test]
+    public function it_rejects_replay_to_a_route_not_tagged_with_anima_capture(): void
+    {
+        $invoked = false;
+
+        Route::post('/api/untagged-receiver', function (Request $request) use (&$invoked) {
+            $invoked = true;
+
+            return response()->json(['received' => true], 200);
+        });
+
+        $response = $this->postJson('/anima/api/replay', [
+            'uri' => '/api/untagged-receiver',
+            'method' => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => ['ping' => 'pong'],
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertFalse($invoked);
     }
 }

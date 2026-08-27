@@ -35,6 +35,69 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Allowed Environments
+    |--------------------------------------------------------------------------
+    |
+    | The Anima dashboard and API are safe-by-default: unless you register a
+    | custom authorization callback via `Anima::auth(Closure $callback)` in
+    | your AppServiceProvider, access is only granted when the application is
+    | running in one of the environments listed here.
+    |
+    */
+    'allowed_environments' => ['local', 'testing'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redacted Headers
+    |--------------------------------------------------------------------------
+    |
+    | Header names (case-insensitive) whose values should be replaced with
+    | "[REDACTED]" before a captured entry is persisted. Extend this list with
+    | any additional auth/signature headers your application uses.
+    |
+    */
+    'redact_headers' => [
+        'authorization',
+        'cookie',
+        'set-cookie',
+        'x-api-key',
+        'x-csrf-token',
+        'x-xsrf-token',
+        'stripe-signature',
+        'x-hub-signature',
+        'x-hub-signature-256',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Replay Destination Restrictions
+    |--------------------------------------------------------------------------
+    |
+    | When true, `/anima/api/replay` will only dispatch synthetic requests to
+    | routes tagged with the `anima.capture` middleware, preventing the
+    | endpoint from being used to forge requests against arbitrary routes.
+    |
+    */
+    'replay' => [
+        'restrict_to_captured_routes' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Throttle settings ("max attempts,decay minutes", per Laravel's throttle
+    | middleware syntax) applied to the purge and replay endpoints.
+    |
+    */
+    'rate_limits' => [
+        'replay' => '30,1',
+        'purge' => '10,1',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Settings
     |--------------------------------------------------------------------------
     |

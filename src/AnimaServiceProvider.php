@@ -4,6 +4,7 @@ namespace Anima;
 
 use Anima\Contracts\PayloadStorageInterface;
 use Anima\Contracts\RequestSynthesizerInterface;
+use Anima\Http\Middleware\Authorize;
 use Anima\Http\Middleware\CaptureWebhook;
 use Anima\Managers\StorageManager;
 use Anima\Services\KernelRequestSynthesizer;
@@ -44,6 +45,7 @@ class AnimaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->app['router']->aliasMiddleware('anima.capture', CaptureWebhook::class);
+        $this->app['router']->aliasMiddleware('anima.authorize', Authorize::class);
 
         $this->loadViewsFrom(dirname(__DIR__) . '/resources/views', 'anima');
 
@@ -79,7 +81,10 @@ class AnimaServiceProvider extends ServiceProvider
         }
 
         $path = config('anima.path', 'anima');
-        $middleware = config('anima.middleware', ['web']);
+        $middleware = array_merge(
+            (array) config('anima.middleware', ['web']),
+            ['anima.authorize']
+        );
 
         Route::group([
             'prefix' => "{$path}/api",
