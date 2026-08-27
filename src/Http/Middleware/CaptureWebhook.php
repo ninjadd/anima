@@ -110,7 +110,7 @@ class CaptureWebhook
             $this->storageManager->store([
                 'method' => $request->method(),
                 'uri' => $request->fullUrl(),
-                'headers' => $request->headers->all(),
+                'headers' => $this->redactHeaders($request->headers->all()),
                 'payload' => $payload,
                 'response_status' => $responseStatus,
                 'response_body' => $responseBody,
@@ -123,5 +123,24 @@ class CaptureWebhook
                 report($e);
             }
         }
+    }
+
+    /**
+     * Replace the values of sensitive headers with a redaction placeholder.
+     *
+     * @param  array<string, array<int, string>>  $headers
+     * @return array<string, array<int, string>>
+     */
+    protected function redactHeaders(array $headers): array
+    {
+        $redactList = array_map('strtolower', config('anima.redact_headers', []));
+
+        foreach ($headers as $key => $value) {
+            if (in_array(strtolower($key), $redactList, true)) {
+                $headers[$key] = ['[REDACTED]'];
+            }
+        }
+
+        return $headers;
     }
 }

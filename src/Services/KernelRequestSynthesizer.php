@@ -54,9 +54,15 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
 
         $startTime = microtime(true);
 
+        $previousRequest = $this->app->bound('request') ? $this->app->make('request') : null;
+
         $response = $this->kernel->handle($laravelRequest);
 
         $this->kernel->terminate($laravelRequest, $response);
+
+        if ($previousRequest !== null) {
+            $this->app->instance('request', $previousRequest);
+        }
 
         $durationMs = round((microtime(true) - $startTime) * 1000, 2);
 

@@ -2,11 +2,19 @@
 
 namespace Anima\Tests;
 
+use Anima\Anima;
 use Anima\AnimaServiceProvider;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 abstract class TestCase extends OrchestraTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Anima::$authUsing = null;
+    }
+
     /**
      * Get package providers.
      *

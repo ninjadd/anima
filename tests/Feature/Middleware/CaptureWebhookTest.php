@@ -55,6 +55,31 @@ class CaptureWebhookTest extends TestCase
     }
 
     #[Test]
+    public function it_redacts_sensitive_headers_but_preserves_others(): void
+    {
+        Route::post('/webhooks/secure', function () {
+            return response()->json(['status' => 'received'], 200);
+        })->middleware('anima.capture');
+
+        $response = $this->postJson('/webhooks/secure', ['order_id' => 1], [
+            'Authorization' => 'Bearer super-secret-token',
+            'Cookie' => 'session=abc123',
+            'X-Webhook-Signature' => 'sig_abc123',
+        ]);
+
+        $response->assertStatus(200);
+
+        $storage = $this->app->make(PayloadStorageInterface::class);
+        $entry = $storage->paginate()['data'][0];
+
+        $headers = array_change_key_case($entry['headers'], CASE_LOWER);
+
+        $this->assertSame(['[REDACTED]'], (array) $headers['authorization']);
+        $this->assertSame(['[REDACTED]'], (array) $headers['cookie']);
+        $this->assertSame(['sig_abc123'], (array) $headers['x-webhook-signature']);
+    }
+
+    #[Test]
     public function it_captures_tags_and_synthetic_flags_from_middleware_parameters_and_headers(): void
     {
         Route::post('/webhooks/stripe', function () {

@@ -35,6 +35,12 @@ Designed for modern API development, Anima includes built-in cryptographic signa
   - [Attaching Interception Middleware](#attaching-interception-middleware)
   - [Integrating Signature Bypass Trait](#integrating-signature-bypass-trait)
 - [Security Considerations & Environment Guards](#security-considerations--environment-guards)
+  - [Dashboard & API Authorization](#dashboard--api-authorization)
+  - [Sensitive Header Redaction](#sensitive-header-redaction)
+  - [Replay Destination Restrictions](#replay-destination-restrictions)
+  - [Rate Limiting](#rate-limiting)
+  - [Cryptographic Signature Bypassing](#cryptographic-signature-bypassing)
+  - [Long-Running Workers (Octane, Swoole, RoadRunner)](#long-running-workers-octane-swoole-roadrunner)
 - [Quickstart and Local Verification](#quickstart-and-local-verification)
 - [Multi-Driver Docker Compose Environment](#multi-driver-docker-compose-environment)
 - [Running Automated Tests](#running-automated-tests)
@@ -240,9 +246,63 @@ class VerifyStripeSignature
 
 ## Security Considerations & Environment Guards
 
+Anima captures and can replay live HTTP traffic — including whatever headers and payloads pass through your webhook routes — so it ships secure-by-default rather than relying on you to lock it down. Each guard below is independently configurable in `config/anima.php`.
+
+### Dashboard & API Authorization
+
+The `/anima` dashboard and every `/anima/api/*` endpoint (entry listing, entry deletion/purge, and replay) are gated by `Anima::check()`. By default, that check passes only when the application is running in an environment listed in `allowed_environments` (default: `local`, `testing`) — **including in `production`, where it fails closed**. Any request outside an allowed environment receives `403 Unauthorized` before it reaches a controller.
+
+To allow authorized access in `production` (or any other environment), register a callback in a service provider's `boot()` method, mirroring Laravel Telescope/Horizon's `::auth()` pattern:
+
+```php
+use Anima\Anima;
+
+Anima::auth(function ($request) {
+    return $request->user()?->isAdmin() ?? false;
+});
+```
+
+> [!CAUTION]
+> **AUTHORIZATION GUARD**
+> Don't add `'production'` to `allowed_environments`, and don't write an `Anima::auth()` callback that always returns `true`. Anyone who passes this check can read every captured webhook (including headers) and trigger synthetic replays — see below.
+
+### Sensitive Header Redaction
+
+Request headers are redacted before a captured entry is persisted. Any header listed in `redact_headers` (case-insensitive match) is stored as `[REDACTED]` instead of its real value. The default list covers common auth and provider signature headers:
+
+```php
+'redact_headers' => [
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'x-api-key',
+    'x-csrf-token',
+    'x-xsrf-token',
+    'stripe-signature',
+    'x-hub-signature',
+    'x-hub-signature-256',
+],
+```
+
+Extend this list with any additional secret or signature headers your webhook providers use.
+
+### Replay Destination Restrictions
+
+`POST /anima/api/replay` dispatches a synthetic request through your application's own HTTP Kernel — attacker-controlled method, headers, and body included — so it must not be usable to forge requests against routes it wasn't meant to touch. By default (`replay.restrict_to_captured_routes`), a replay is only permitted when its target URI resolves to a route carrying the `anima.capture` middleware, i.e. a route Anima already captures traffic for. Any other destination returns `422 Unprocessable Entity` without dispatching the request.
+
+### Rate Limiting
+
+The purge (`DELETE /anima/api/entries`) and replay (`POST /anima/api/replay`) endpoints are throttled via `rate_limits` (`"max attempts,decay minutes"`, default `10,1` and `30,1` respectively), limiting how much damage an authorized-but-compromised session can do.
+
+### Cryptographic Signature Bypassing
+
 > [!CAUTION]
 > **ENVIRONMENT SECURITY GUARD**
 > The `BypassesReplaySignatures` trait is strictly locked to `local` and `testing` environments (`app()->environment('local', 'testing')`). In `production` environments, `isValidReplay()` is hardcoded to return `false`, preventing header spoofing attacks.
+
+### Long-Running Workers (Octane, Swoole, RoadRunner)
+
+`KernelRequestSynthesizer` dispatches synthetic requests through the same in-process Kernel used to serve the current request. The container's `request` binding is saved before dispatch and restored immediately after, so a replay cannot leak its synthetic request context into the next request served by the same long-running worker process.
 
 ---
 

@@ -101,6 +101,21 @@ class KernelRequestSynthesizerTest extends TestCase
     }
 
     #[Test]
+    public function it_restores_the_previous_request_binding_after_synthesizing(): void
+    {
+        Route::get('/api/whatever', function () {
+            return response()->json(['ok' => true]);
+        });
+
+        $originalRequest = Request::create('/original-outer-request', 'GET');
+        $this->app->instance('request', $originalRequest);
+
+        $this->synthesizer->synthesize('/api/whatever', 'GET');
+
+        $this->assertSame($originalRequest, $this->app->make('request'));
+    }
+
+    #[Test]
     public function it_captures_error_responses_accurately(): void
     {
         Route::post('/api/validate', function (Request $request) {

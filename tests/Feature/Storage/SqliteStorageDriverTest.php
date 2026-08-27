@@ -111,4 +111,23 @@ class SqliteStorageDriverTest extends TestCase
         $this->assertTrue($this->driver->purge());
         $this->assertSame(0, $this->driver->paginate()['total']);
     }
+
+    #[Test]
+    public function it_rejects_unsafe_table_names(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new SqliteStorageDriver($this->tempDbPath . '.unsafe', 'entries; DROP TABLE users; --');
+    }
+
+    #[Test]
+    public function it_accepts_a_normal_custom_table_name(): void
+    {
+        $path = $this->tempDbDir . '/custom_table.sqlite';
+        $driver = new SqliteStorageDriver($path, 'my_custom_entries');
+
+        $this->assertSame('my_custom_entries', $driver->getTable());
+
+        @unlink($path);
+    }
 }
