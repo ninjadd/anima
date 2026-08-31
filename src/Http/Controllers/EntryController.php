@@ -23,7 +23,11 @@ class EntryController
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = (int) $request->input('per_page', 25);
+        $validated = $request->validate([
+            'per_page' => 'sometimes|integer|min:1',
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 25);
         $filters = $request->all();
 
         $results = $this->storage->paginate($perPage, $filters);

@@ -120,6 +120,10 @@ return [
             'table' => env('ANIMA_SQLITE_TABLE', 'anima_entries'),
         ],
 
+        // Note: filtered queries (search/tag/status) against the Redis driver
+        // scan the entire index and degrade linearly with entry count, since
+        // Redis has no secondary index for these fields. For large capture
+        // histories with heavy filtered querying, prefer "database"/"sqlite".
         'redis' => [
             'connection' => env('ANIMA_REDIS_CONNECTION', 'default'),
             'prefix' => env('ANIMA_REDIS_PREFIX', 'anima:entries'),

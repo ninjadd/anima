@@ -92,6 +92,18 @@ class WorkbenchApiTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_non_positive_per_page_values(): void
+    {
+        $this->storage->store(['uri' => 'https://example.com/webhooks/stripe']);
+
+        $zero = $this->getJson('/anima/api/entries?per_page=0');
+        $zero->assertStatus(422);
+
+        $negative = $this->getJson('/anima/api/entries?per_page=-5');
+        $negative->assertStatus(422);
+    }
+
+    #[Test]
     public function it_shows_single_entry_details_via_api(): void
     {
         $id = $this->storage->store([

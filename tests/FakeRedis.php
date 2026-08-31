@@ -24,12 +24,18 @@ class FakeRedis
         return $this->storage[$key] ?? null;
     }
 
-    public function del(string|array $keys): void
+    public function del(string|array $keys): int
     {
         $keys = is_array($keys) ? $keys : [$keys];
+        $deleted = 0;
         foreach ($keys as $key) {
+            if (array_key_exists($key, $this->storage)) {
+                $deleted++;
+            }
             unset($this->storage[$key], $this->ttls[$key], $this->sortedSets[$key]);
         }
+
+        return $deleted;
     }
 
     public function zadd(string $key, mixed $arg1, mixed $arg2 = null): void

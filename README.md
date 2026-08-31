@@ -66,7 +66,7 @@ Designed for modern API development, Anima includes built-in cryptographic signa
 ### 4. Swappable Polymorphic Storage Drivers
 - **Database Driver (`database`):** Stores webhook events in your primary database connection with configurable table names and timestamp indexing.
 - **Isolated SQLite Driver (`sqlite`):** Automatically provisions an isolated SQLite database file and schema without modifying host application migrations.
-- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration.
+- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration. Known limitation: filtered queries (search/tag/status) scan the full index and degrade linearly with entry count, since Redis has no secondary index for these fields — prefer the Database or SQLite driver for large capture histories with heavy filtered querying.
 
 ### 5. Embedded Vue 3 & Monaco Editor Workbench
 - **Split-Pane Architecture:** Left-pane scrollable event feed paired with a right-pane request/response inspection studio.
@@ -411,7 +411,7 @@ Run the PHPUnit test suite:
 ./vendor/bin/phpunit
 ```
 
-All 44 tests (216 assertions) verify:
+All 47 tests (223 assertions) verify:
 - Storage drivers (`DatabaseStorageDriver`, `SqliteStorageDriver`, `RedisStorageDriver`) and `StorageManager`.
 - Webhook capture middleware with route tags and synthetic replay loop prevention.
 - Kernel request synthesizer in-memory dispatch, metric tracking, and request singleton restoration.

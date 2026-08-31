@@ -90,4 +90,14 @@ class RedisStorageDriverTest extends TestCase
         $this->assertTrue($this->driver->purge());
         $this->assertSame(0, $this->driver->paginate()['total']);
     }
+
+    #[Test]
+    public function it_reports_false_when_deleting_a_nonexistent_id(): void
+    {
+        $this->assertFalse($this->driver->delete('does-not-exist'));
+
+        $id = $this->driver->store(['uri' => 'https://api.example.com/hook/exists']);
+        $this->assertTrue($this->driver->delete($id));
+        $this->assertFalse($this->driver->delete($id));
+    }
 }

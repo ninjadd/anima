@@ -101,8 +101,7 @@ class CaptureWebhook
 
             $resolvedTags = array_values(array_unique($resolvedTags));
 
-            $isSynthetic = $request->hasHeader('X-Anima-Synthetic')
-                || filter_var($request->header('X-Anima-Synthetic'), FILTER_VALIDATE_BOOLEAN)
+            $isSynthetic = filter_var($request->header('X-Anima-Synthetic'), FILTER_VALIDATE_BOOLEAN)
                 || $request->boolean('is_synthetic');
 
             $responseStatus = method_exists($response, 'getStatusCode') ? $response->getStatusCode() : 200;
