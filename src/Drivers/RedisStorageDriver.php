@@ -227,10 +227,10 @@ class RedisStorageDriver implements PayloadStorageInterface
      */
     public function delete(string $id): bool
     {
-        $this->redis->del($this->getItemKey($id));
+        $deleted = (int) $this->redis->del($this->getItemKey($id));
         $this->redis->zrem($this->getIndexKey(), $id);
 
-        return true;
+        return $deleted > 0;
     }
 
     /**

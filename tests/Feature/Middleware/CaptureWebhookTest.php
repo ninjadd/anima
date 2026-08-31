@@ -110,6 +110,25 @@ class CaptureWebhookTest extends TestCase
     }
 
     #[Test]
+    public function it_treats_x_anima_synthetic_false_as_not_synthetic(): void
+    {
+        Route::post('/webhooks/synthetic-false', function () {
+            return response()->json(['ok' => true]);
+        })->middleware('anima.capture');
+
+        $response = $this->postJson('/webhooks/synthetic-false', ['type' => 'test'], [
+            'X-Anima-Synthetic' => 'false',
+        ]);
+
+        $response->assertStatus(200);
+
+        $storage = $this->app->make(PayloadStorageInterface::class);
+        $entry = $storage->paginate()['data'][0];
+
+        $this->assertFalse($entry['is_synthetic']);
+    }
+
+    #[Test]
     public function it_does_not_capture_when_anima_is_disabled(): void
     {
         config(['anima.enabled' => false]);
