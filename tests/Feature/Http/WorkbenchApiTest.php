@@ -134,6 +134,18 @@ class WorkbenchApiTest extends TestCase
     }
 
     #[Test]
+    public function it_rejects_per_page_values_above_the_upper_bound(): void
+    {
+        $this->storage->store(['uri' => 'https://example.com/webhooks/stripe']);
+
+        $tooLarge = $this->getJson('/anima/api/entries?per_page=100000');
+        $tooLarge->assertStatus(422);
+
+        $atLimit = $this->getJson('/anima/api/entries?per_page=100');
+        $atLimit->assertStatus(200);
+    }
+
+    #[Test]
     public function it_shows_single_entry_details_via_api(): void
     {
         $id = $this->storage->store([

@@ -24,7 +24,7 @@ class EntryController
     public function index(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'per_page' => 'sometimes|integer|min:1',
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         $perPage = (int) ($validated['per_page'] ?? 25);
