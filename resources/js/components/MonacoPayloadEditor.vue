@@ -148,10 +148,23 @@ watch(
 
 const formatDocument = () => {
   if (!editorInstance) return;
+  const model = editorInstance.getModel();
+  if (!model) return;
+
   try {
     const raw = editorInstance.getValue();
     const parsed = JSON.parse(raw);
-    editorInstance.setValue(JSON.stringify(parsed, null, 2));
+    const formatted = JSON.stringify(parsed, null, 2);
+
+    // setValue() replaces the whole model and wipes the undo stack; executeEdits()
+    // applies it as a normal, undoable edit instead. Without pushUndoStop() first,
+    // Monaco can silently coalesce this edit into whatever the user just typed, so
+    // one undo would revert both instead of just the format.
+    editorInstance.pushUndoStop();
+    editorInstance.executeEdits('format', [
+      { range: model.getFullModelRange(), text: formatted },
+    ]);
+    editorInstance.pushUndoStop();
   } catch {
     editorInstance.getAction('editor.action.formatDocument')?.run();
   }
