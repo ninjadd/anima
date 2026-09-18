@@ -8,6 +8,7 @@ export const useAnimaStore = defineStore('anima', () => {
   const isLoading = ref(false);
   const isReplaying = ref(false);
   const lastReplayResult = ref(null);
+  const pollHealthy = ref(true);
 
   const filters = reactive({
     search: '',
@@ -23,8 +24,8 @@ export const useAnimaStore = defineStore('anima', () => {
     last_page: 1,
   });
 
-  const fetchEntries = async (page = 1) => {
-    isLoading.value = true;
+  const fetchEntries = async (page = 1, { silent = false } = {}) => {
+    if (!silent) isLoading.value = true;
     try {
       const params = {
         page,
@@ -45,10 +46,12 @@ export const useAnimaStore = defineStore('anima', () => {
       if (!activeEntry.value && entries.value.length > 0) {
         activeEntry.value = entries.value[0];
       }
+      return true;
     } catch (error) {
       console.error('Failed to fetch Anima entries:', error);
+      return false;
     } finally {
-      isLoading.value = false;
+      if (!silent) isLoading.value = false;
     }
   };
 
@@ -125,12 +128,66 @@ export const useAnimaStore = defineStore('anima', () => {
     }
   };
 
+  let pollTimer = null;
+  let pollInFlight = false;
+  let pollFailureCount = 0;
+
+  const isDefaultView = () => (
+    pagination.current_page === 1 &&
+    !filters.search &&
+    !filters.method &&
+    !filters.tag &&
+    filters.is_synthetic === null
+  );
+
+  const pollTick = async () => {
+    if (document.hidden || pollInFlight || isLoading.value || !isDefaultView()) {
+      return;
+    }
+
+    pollInFlight = true;
+    const success = await fetchEntries(1, { silent: true });
+    pollInFlight = false;
+
+    if (success) {
+      pollFailureCount = 0;
+      pollHealthy.value = true;
+    } else if (++pollFailureCount >= 2) {
+      pollHealthy.value = false;
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      pollTick();
+    }
+  };
+
+  const startPolling = () => {
+    if (pollTimer) return;
+
+    const intervalSeconds = Number(window.Anima?.pollInterval ?? 8);
+    if (!intervalSeconds || intervalSeconds <= 0) return;
+
+    pollTimer = setInterval(pollTick, intervalSeconds * 1000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  };
+
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+
   return {
     entries,
     activeEntry,
     isLoading,
     isReplaying,
     lastReplayResult,
+    pollHealthy,
     filters,
     pagination,
     fetchEntries,
@@ -139,5 +196,7 @@ export const useAnimaStore = defineStore('anima', () => {
     deleteEntry,
     clearEntries,
     triggerReplay,
+    startPolling,
+    stopPolling,
   };
 });

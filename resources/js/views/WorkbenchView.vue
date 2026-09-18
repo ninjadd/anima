@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { onMounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 import EventFeed from '../components/EventFeed.vue';
@@ -24,10 +24,15 @@ const route = useRoute();
 
 onMounted(() => {
   store.fetchEntries(1);
+  store.startPolling();
 
   if (route.params.id) {
     store.loadEntry(route.params.id);
   }
+});
+
+onUnmounted(() => {
+  store.stopPolling();
 });
 
 watch(

@@ -48,6 +48,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Live Feed Polling
+    |--------------------------------------------------------------------------
+    |
+    | How often (in seconds) the dashboard polls for newly captured entries
+    | while viewing the default, unfiltered first page. Set to 0 to disable
+    | polling and rely on manual refresh only. If Anima is exposed to many
+    | concurrent dashboard sessions (see `allowed_environments` above),
+    | consider a longer interval or disabling polling to limit query load.
+    |
+    */
+    'poll_interval' => env('ANIMA_POLL_INTERVAL', 8),
+
+    /*
+    |--------------------------------------------------------------------------
     | Redacted Headers
     |--------------------------------------------------------------------------
     |
