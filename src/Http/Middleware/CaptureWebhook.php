@@ -30,11 +30,11 @@ class CaptureWebhook
             return $next($request);
         }
 
-        // Prevent infinite capture loops when executing synthetic replays
-        $isReplay = strtolower((string) $request->header('X-Anima-Replay', '')) === 'true'
-            || $request->header('X-Anima-Replay') === '1';
-
-        if ($isReplay) {
+        // Prevent infinite capture loops when executing synthetic replays.
+        // This checks the `anima_synthetic_replay` request attribute set by
+        // KernelRequestSynthesizer, not a header, since headers on real inbound
+        // requests are attacker-controlled.
+        if ($request->attributes->get('anima_synthetic_replay') === true) {
             return $next($request);
         }
 

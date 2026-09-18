@@ -61,7 +61,7 @@
 
         <button
           type="button"
-          @click="store.deleteEntry(store.activeEntry.id)"
+          @click="removeActiveEntry"
           class="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
           title="Delete Entry"
         >
@@ -157,6 +157,19 @@
     />
   </div>
 
+  <!-- Error State -->
+  <div v-else-if="store.error?.context === 'entry'" class="h-full flex flex-col items-center justify-center text-center p-8 bg-slate-100 dark:bg-slate-950">
+    <svg class="w-12 h-12 mb-3 stroke-1 text-rose-400 dark:text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+    </svg>
+    <p class="text-sm font-medium text-rose-600 dark:text-rose-400">
+      {{ store.error.message }}<span v-if="store.error.status"> ({{ store.error.status }})</span>
+    </p>
+    <button type="button" @click="store.dismissError()" class="mt-3 text-xs text-slate-500 dark:text-slate-400 underline hover:no-underline">
+      Dismiss
+    </button>
+  </div>
+
   <!-- Empty State -->
   <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-8 text-center bg-slate-100 dark:bg-slate-950">
     <svg class="w-12 h-12 mb-3 stroke-1 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -171,12 +184,19 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 import MonacoPayloadEditor from './MonacoPayloadEditor.vue';
 import HeaderInspector from './HeaderInspector.vue';
 import ReplayResultModal from './ReplayResultModal.vue';
 
 const store = useAnimaStore();
+const router = useRouter();
+
+const removeActiveEntry = async () => {
+  await store.deleteEntry(store.activeEntry.id);
+  router.push('/');
+};
 
 const activeTab = ref('payload');
 const replayMethod = ref('POST');

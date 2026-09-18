@@ -34,6 +34,24 @@ class AuthorizationTest extends TestCase
     }
 
     #[Test]
+    public function it_serves_assets_in_production_without_authorization(): void
+    {
+        $this->app['env'] = 'production';
+
+        $dist = dirname(__DIR__, 2) . '/resources/dist';
+        if (! is_dir($dist)) {
+            mkdir($dist, 0755, true);
+        }
+        file_put_contents($dist . '/auth-test-asset.js', 'console.log("anima asset");');
+
+        try {
+            $this->get('/anima/assets/auth-test-asset.js')->assertStatus(200);
+        } finally {
+            @unlink($dist . '/auth-test-asset.js');
+        }
+    }
+
+    #[Test]
     public function it_defers_to_a_custom_auth_callback_when_registered(): void
     {
         $this->app['env'] = 'production';

@@ -50,8 +50,9 @@ class StorageManager extends Manager implements PayloadStorageInterface
         $redis = $this->container->make('redis')->connection($connectionName);
         $prefix = $this->config->get('anima.storage.redis.prefix', 'anima:entries');
         $ttl = $this->config->get('anima.storage.redis.ttl', 86400);
+        $maxFilterScan = $this->config->get('anima.storage.redis.max_filter_scan', 5000);
 
-        return new RedisStorageDriver($redis, $prefix, $ttl);
+        return new RedisStorageDriver($redis, $prefix, $ttl, $maxFilterScan);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Anima\Tests\Feature\Http;
 
 use Anima\Contracts\PayloadStorageInterface;
+use Anima\Http\Middleware\CaptureWebhook;
 use Anima\Tests\TestCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -57,7 +58,36 @@ class WorkbenchApiTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertStringContainsString('text/javascript', $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('anima test', $response->getContent());
+        $this->assertStringContainsString(
+            'anima test',
+            file_get_contents($response->baseResponse->getFile()->getPathname())
+        );
+    }
+
+    #[Test]
+    public function it_serves_assets_without_starting_a_session_or_cookies(): void
+    {
+        $response = $this->get('/anima/assets/test-asset.js');
+
+        $response->assertStatus(200);
+        $this->assertFalse($response->headers->has('Set-Cookie'));
+        $this->assertFalse($this->app['session']->isStarted());
+    }
+
+    #[Test]
+    public function it_supports_conditional_requests_for_assets(): void
+    {
+        $first = $this->get('/anima/assets/test-asset.js');
+        $first->assertStatus(200);
+
+        $lastModified = $first->headers->get('Last-Modified');
+        $this->assertNotEmpty($lastModified);
+
+        $second = $this->get('/anima/assets/test-asset.js', [
+            'If-Modified-Since' => $lastModified,
+        ]);
+
+        $second->assertStatus(304);
     }
 
     #[Test]
@@ -101,6 +131,18 @@ class WorkbenchApiTest extends TestCase
 
         $negative = $this->getJson('/anima/api/entries?per_page=-5');
         $negative->assertStatus(422);
+    }
+
+    #[Test]
+    public function it_rejects_per_page_values_above_the_upper_bound(): void
+    {
+        $this->storage->store(['uri' => 'https://example.com/webhooks/stripe']);
+
+        $tooLarge = $this->getJson('/anima/api/entries?per_page=100000');
+        $tooLarge->assertStatus(422);
+
+        $atLimit = $this->getJson('/anima/api/entries?per_page=100');
+        $atLimit->assertStatus(200);
     }
 
     #[Test]
@@ -157,6 +199,58 @@ class WorkbenchApiTest extends TestCase
 
         $response = $this->postJson('/anima/api/replay', [
             'uri' => '/api/test-receiver',
+            'method' => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => ['ping' => 'pong'],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status_code', 200)
+            ->assertJsonPath('is_synthetic', true);
+
+        $body = json_decode($response->json('body'), true);
+        $this->assertTrue($body['received']);
+        $this->assertSame('pong', $body['echo']['ping']);
+    }
+
+    #[Test]
+    public function it_dispatches_synthetic_replay_to_a_route_tagged_via_class_string_middleware(): void
+    {
+        Route::post('/api/class-middleware-receiver', function (Request $request) {
+            return response()->json([
+                'received' => true,
+                'echo' => $request->all(),
+            ], 200);
+        })->middleware(CaptureWebhook::class);
+
+        $response = $this->postJson('/anima/api/replay', [
+            'uri' => '/api/class-middleware-receiver',
+            'method' => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => ['ping' => 'pong'],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status_code', 200)
+            ->assertJsonPath('is_synthetic', true);
+
+        $body = json_decode($response->json('body'), true);
+        $this->assertTrue($body['received']);
+        $this->assertSame('pong', $body['echo']['ping']);
+    }
+
+    #[Test]
+    public function it_dispatches_synthetic_replay_to_a_domain_scoped_route(): void
+    {
+        Route::domain('api.example.test')->post('/webhooks/stripe', function (Request $request) {
+            return response()->json([
+                'received' => true,
+                'echo' => $request->all(),
+            ], 200);
+        })->middleware('anima.capture');
+
+        $response = $this->postJson('/anima/api/replay', [
+            'uri' => 'http://api.example.test/webhooks/stripe',
             'method' => 'POST',
             'headers' => ['Content-Type' => 'application/json'],
             'body' => ['ping' => 'pong'],

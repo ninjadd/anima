@@ -7,6 +7,26 @@ use Anima\Tests\FakeRedis;
 use Anima\Tests\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
+class CountingFakeRedis extends FakeRedis
+{
+    public int $getCalls = 0;
+    public int $zrevrangeCalls = 0;
+
+    public function get(string $key): ?string
+    {
+        $this->getCalls++;
+
+        return parent::get($key);
+    }
+
+    public function zrevrange(string $key, int $start, int $stop): array
+    {
+        $this->zrevrangeCalls++;
+
+        return parent::zrevrange($key, $start, $stop);
+    }
+}
+
 class RedisStorageDriverTest extends TestCase
 {
     protected FakeRedis $redis;
@@ -82,6 +102,7 @@ class RedisStorageDriverTest extends TestCase
         $filteredTag = $this->driver->paginate(10, ['tag' => 'stripe']);
         $this->assertSame(1, $filteredTag['total']);
         $this->assertSame('https://api.example.com/hook/stripe', $filteredTag['data'][0]['uri']);
+        $this->assertFalse($filteredTag['truncated']);
 
         $syntheticOnly = $this->driver->paginate(10, ['is_synthetic' => true]);
         $this->assertSame(1, $syntheticOnly['total']);
@@ -99,5 +120,65 @@ class RedisStorageDriverTest extends TestCase
         $id = $this->driver->store(['uri' => 'https://api.example.com/hook/exists']);
         $this->assertTrue($this->driver->delete($id));
         $this->assertFalse($this->driver->delete($id));
+    }
+
+    #[Test]
+    public function filtered_paginate_batches_lookups_instead_of_one_get_per_entry(): void
+    {
+        $redis = new CountingFakeRedis();
+        $driver = new RedisStorageDriver($redis, 'anima:entries', null);
+
+        for ($i = 0; $i < 50; $i++) {
+            $driver->store(['uri' => "https://api.example.com/{$i}", 'method' => 'POST']);
+        }
+
+        $redis->getCalls = 0;
+        $result = $driver->paginate(10, ['method' => 'POST']);
+
+        $this->assertSame(50, $result['total']);
+        $this->assertCount(10, $result['data']);
+        $this->assertSame(0, $redis->getCalls, 'Filtered paginate() should batch lookups via mget(), not call get() per entry.');
+        $this->assertFalse($result['truncated']);
+    }
+
+    #[Test]
+    public function filtered_paginate_stops_scanning_once_max_filter_scan_is_reached(): void
+    {
+        $redis = new CountingFakeRedis();
+        $driver = new RedisStorageDriver($redis, 'anima:entries', null, 300);
+
+        // All 600 entries match the filter below, so an unbounded scan would
+        // report a total of 600. maxFilterScan (300) should stop the scan
+        // after the first 500-entry chunk (RedisStorageDriver::SCAN_CHUNK_SIZE),
+        // well short of examining the full index.
+        for ($i = 0; $i < 600; $i++) {
+            $driver->store(['uri' => "https://api.example.com/{$i}", 'method' => 'POST']);
+        }
+
+        $result = $driver->paginate(10, ['method' => 'POST']);
+
+        $this->assertTrue($result['truncated']);
+        $this->assertSame(500, $result['total']);
+        $this->assertSame(1, $redis->zrevrangeCalls, 'Scan should stop after the first chunk once maxFilterScan is reached.');
+    }
+
+    #[Test]
+    public function default_listing_does_not_report_an_inflated_total_for_entries_past_the_ttl_window(): void
+    {
+        $driver = new RedisStorageDriver($this->redis, 'anima:entries', 60);
+
+        // Past the 60s TTL window - Redis would already have expired this
+        // entry's payload key natively, but the sorted-set index is never
+        // told about that on its own.
+        $id1 = $driver->store(['uri' => 'https://api.example.com/1', 'created_at' => now()->subSeconds(90)->toDateTimeString()]);
+        $driver->store(['uri' => 'https://api.example.com/2', 'created_at' => now()->subSeconds(10)->toDateTimeString()]);
+        $driver->store(['uri' => 'https://api.example.com/3', 'created_at' => now()->toDateTimeString()]);
+
+        // Simulate that expiry actually having happened.
+        unset($this->redis->storage[$driver->getItemKey($id1)]);
+
+        $result = $driver->paginate(1);
+
+        $this->assertSame(2, $result['total']);
     }
 }

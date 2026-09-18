@@ -3,6 +3,7 @@
 namespace Anima\Http\Controllers;
 
 use Anima\Contracts\RequestSynthesizerInterface;
+use Anima\Http\Middleware\CaptureWebhook;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -66,18 +67,27 @@ class ReplayController
             return true;
         }
 
-        $path = '/' . ltrim((string) parse_url($uri, PHP_URL_PATH), '/');
-
         try {
+            // Pass the full URI, not just its path, so Symfony retains the host
+            // and port during matching. Routes scoped with Route::domain(...)
+            // only match against their configured host; stripping it here would
+            // make every domain-scoped route wrongly appear unmatched.
             $route = app('router')->getRoutes()->match(
-                Request::create($path, strtoupper($method))
+                Request::create($uri, strtoupper($method))
             );
         } catch (\Throwable $e) {
             return false;
         }
 
+        // A route may carry the capture middleware either by its 'anima.capture'
+        // alias (optionally with ':tag,tag' parameters) or by its FQCN, since
+        // gatherMiddleware() returns whichever form the route registered.
+        $captureMiddleware = ['anima.capture', CaptureWebhook::class];
+
         foreach ($route->gatherMiddleware() as $middleware) {
-            if ($middleware === 'anima.capture' || str_starts_with($middleware, 'anima.capture:')) {
+            $base = explode(':', $middleware, 2)[0];
+
+            if (in_array($base, $captureMiddleware, true)) {
                 return true;
             }
         }

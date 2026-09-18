@@ -8,6 +8,23 @@ export const useAnimaStore = defineStore('anima', () => {
   const isLoading = ref(false);
   const isReplaying = ref(false);
   const lastReplayResult = ref(null);
+  const pollHealthy = ref(true);
+  const error = ref(null);
+
+  const describeError = (err, fallback) => ({
+    status: err.response?.status ?? null,
+    message: err.response?.data?.message || err.message || fallback,
+  });
+
+  const clearErrorIfContext = (context) => {
+    if (error.value?.context === context) {
+      error.value = null;
+    }
+  };
+
+  const dismissError = () => {
+    error.value = null;
+  };
 
   const filters = reactive({
     search: '',
@@ -23,8 +40,8 @@ export const useAnimaStore = defineStore('anima', () => {
     last_page: 1,
   });
 
-  const fetchEntries = async (page = 1) => {
-    isLoading.value = true;
+  const fetchEntries = async (page = 1, { silent = false } = {}) => {
+    if (!silent) isLoading.value = true;
     try {
       const params = {
         page,
@@ -42,13 +59,19 @@ export const useAnimaStore = defineStore('anima', () => {
       pagination.current_page = data.current_page || 1;
       pagination.last_page = data.last_page || 1;
 
-      if (!activeEntry.value && entries.value.length > 0) {
+      if (!activeEntry.value && entries.value.length > 0 && error.value?.context !== 'entry') {
         activeEntry.value = entries.value[0];
       }
-    } catch (error) {
-      console.error('Failed to fetch Anima entries:', error);
+      clearErrorIfContext('entries');
+      return true;
+    } catch (err) {
+      console.error('Failed to fetch Anima entries:', err);
+      if (!silent) {
+        error.value = { context: 'entries', ...describeError(err, 'Failed to load webhook entries.') };
+      }
+      return false;
     } finally {
-      isLoading.value = false;
+      if (!silent) isLoading.value = false;
     }
   };
 
@@ -58,15 +81,18 @@ export const useAnimaStore = defineStore('anima', () => {
       const { data } = await api.get(`/entries/${id}`);
       activeEntry.value = data;
       lastReplayResult.value = null;
-    } catch (error) {
-      console.error(`Failed to load entry ${id}:`, error);
+      clearErrorIfContext('entry');
+    } catch (err) {
+      console.error(`Failed to load entry ${id}:`, err);
+      activeEntry.value = null;
+      error.value = { context: 'entry', ...describeError(err, 'Failed to load this webhook entry.') };
     } finally {
       isLoading.value = false;
     }
   };
 
-  const selectEntry = (entry) => {
-    activeEntry.value = entry;
+  const selectFirstEntry = () => {
+    activeEntry.value = entries.value[0] || null;
     lastReplayResult.value = null;
   };
 
@@ -79,8 +105,10 @@ export const useAnimaStore = defineStore('anima', () => {
       if (activeEntry.value?.id === id) {
         activeEntry.value = entries.value[0] || null;
       }
-    } catch (error) {
-      console.error(`Failed to delete entry ${id}:`, error);
+      clearErrorIfContext('delete');
+    } catch (err) {
+      console.error(`Failed to delete entry ${id}:`, err);
+      error.value = { context: 'delete', ...describeError(err, 'Failed to delete this entry.') };
     }
   };
 
@@ -91,8 +119,10 @@ export const useAnimaStore = defineStore('anima', () => {
       activeEntry.value = null;
       lastReplayResult.value = null;
       pagination.total = 0;
-    } catch (error) {
-      console.error('Failed to clear entries:', error);
+      clearErrorIfContext('clear');
+    } catch (err) {
+      console.error('Failed to clear entries:', err);
+      error.value = { context: 'clear', ...describeError(err, 'Failed to clear entries.') };
     }
   };
 
@@ -125,19 +155,77 @@ export const useAnimaStore = defineStore('anima', () => {
     }
   };
 
+  let pollTimer = null;
+  let pollInFlight = false;
+  let pollFailureCount = 0;
+
+  const isDefaultView = () => (
+    pagination.current_page === 1 &&
+    !filters.search &&
+    !filters.method &&
+    !filters.tag &&
+    filters.is_synthetic === null
+  );
+
+  const pollTick = async () => {
+    if (document.hidden || pollInFlight || isLoading.value || !isDefaultView()) {
+      return;
+    }
+
+    pollInFlight = true;
+    const success = await fetchEntries(1, { silent: true });
+    pollInFlight = false;
+
+    if (success) {
+      pollFailureCount = 0;
+      pollHealthy.value = true;
+    } else if (++pollFailureCount >= 2) {
+      pollHealthy.value = false;
+    }
+  };
+
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      pollTick();
+    }
+  };
+
+  const startPolling = () => {
+    if (pollTimer) return;
+
+    const intervalSeconds = Number(window.Anima?.pollInterval ?? 8);
+    if (!intervalSeconds || intervalSeconds <= 0) return;
+
+    pollTimer = setInterval(pollTick, intervalSeconds * 1000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  };
+
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+
   return {
     entries,
     activeEntry,
     isLoading,
     isReplaying,
     lastReplayResult,
+    pollHealthy,
+    error,
     filters,
     pagination,
     fetchEntries,
     loadEntry,
-    selectEntry,
+    selectFirstEntry,
     deleteEntry,
     clearEntries,
     triggerReplay,
+    startPolling,
+    stopPolling,
+    dismissError,
   };
 });

@@ -3,7 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
 [![Latest Tag](https://img.shields.io/github/v/tag/ninjadd/anima?label=tag&style=flat-square)](https://github.com/ninjadd/anima/tags)
 [![Total Downloads](https://img.shields.io/packagist/dt/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
-[![Tests Passing](https://img.shields.io/badge/Tests-44%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
+[![Tests Passing](https://img.shields.io/badge/Tests-65%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
 [![License](https://img.shields.io/github/license/ninjadd/anima?style=flat-square)](LICENSE)
 [![Laravel Support](https://img.shields.io/badge/Laravel-10_%7C_11_%7C_12_%7C_13%2B-red.svg?style=flat-square)](https://laravel.com)
 [![PHP Version](https://img.shields.io/badge/PHP-8.2_%7C_8.3_%7C_8.4_%7C_8.5-blue.svg?style=flat-square)](https://php.net)
@@ -66,12 +66,16 @@ Designed for modern API development, Anima includes built-in cryptographic signa
 ### 4. Swappable Polymorphic Storage Drivers
 - **Database Driver (`database`):** Stores webhook events in your primary database connection with configurable table names and timestamp indexing.
 - **Isolated SQLite Driver (`sqlite`):** Automatically provisions an isolated SQLite database file and schema without modifying host application migrations.
-- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration. Known limitation: filtered queries (search/tag/status) scan the full index and degrade linearly with entry count, since Redis has no secondary index for these fields — prefer the Database or SQLite driver for large capture histories with heavy filtered querying.
+- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration. Known limitation: filtered queries (search/tag/status) scan the index newest-first and degrade with entry count, since Redis has no secondary index for these fields. `storage.redis.max_filter_scan` bounds that cost by capping how many recent entries a filtered query will scan (the API response's `truncated` flag reports when a query hit that cap) — prefer the Database or SQLite driver for large capture histories with heavy filtered querying.
 
 ### 5. Embedded Vue 3 & Monaco Editor Workbench
 - **Split-Pane Architecture:** Left-pane scrollable event feed paired with a right-pane request/response inspection studio.
 - **Monaco JSON Editor:** Full VS Code editing experience with syntax highlighting, automatic JSON formatting, and reactive document synchronization.
 - **Replay Result Slide-Over:** Real-time modal detailing synthetic response status codes, execution durations, and formatted payload viewers with copy-to-clipboard actions.
+- **Live-Updating Feed:** The dashboard polls for newly captured webhooks (interval configurable via `poll_interval`, disable with `0`) and reflects real connection health in the header — "Listening for Webhooks" while polling succeeds, "Reconnecting…" if it starts failing.
+- **Shareable, Deep-Linkable Entries:** Selecting an event updates the URL (`/anima/{id}`), so refreshing, sharing a link, or using browser back/forward returns to the same entry instead of resetting to the first page.
+- **Paginated Event Feed:** Seamlessly browse historical webhooks with Previous/Next pagination controls.
+- **Interactive Tag Filtering:** Filter events by provider tags with instant workbench synchronization.
 
 ### 6. Request Context & Header Inspector
 - **Dynamic Header Manipulation:** Add, edit, remove, and reset request headers before triggering synthetic replays.
@@ -165,6 +169,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Live Feed Polling
+    |--------------------------------------------------------------------------
+    | How often (in seconds) the dashboard polls for newly captured entries
+    | while viewing the default, unfiltered first page. Set to 0 to disable
+    | polling and rely on manual refresh only.
+    */
+    'poll_interval' => env('ANIMA_POLL_INTERVAL', 8),
+
+    /*
+    |--------------------------------------------------------------------------
     | Redacted Headers
     |--------------------------------------------------------------------------
     | Header names whose values should be replaced with "[REDACTED]".
@@ -225,6 +239,7 @@ return [
             'connection' => env('ANIMA_REDIS_CONNECTION', 'default'),
             'prefix' => env('ANIMA_REDIS_PREFIX', 'anima:entries'),
             'ttl' => env('ANIMA_REDIS_TTL', 86400),
+            'max_filter_scan' => env('ANIMA_REDIS_MAX_FILTER_SCAN', 5000),
         ],
     ],
 ];
@@ -239,6 +254,7 @@ return [
 Attach the `anima.capture` middleware alias to any webhook route. You can pass optional comma-separated tags to categorize entries:
 
 ```php
+use Anima\Http\Middleware\CaptureWebhook;
 use Illuminate\Support\Facades\Route;
 
 // Standard capture
@@ -251,6 +267,10 @@ Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle'])
 
 Route::post('/webhooks/github', [GitHubWebhookController::class, 'handle'])
     ->middleware('anima.capture:github,vcs');
+
+// Class-string middleware registration is also supported
+Route::post('/webhooks/custom', [CustomWebhookController::class, 'handle'])
+    ->middleware(CaptureWebhook::class);
 ```
 
 ---
@@ -336,7 +356,7 @@ Extend this list with any additional secret or signature headers your webhook pr
 
 ### Replay Destination Restrictions
 
-`POST /anima/api/replay` dispatches a synthetic request through your application's own HTTP Kernel — attacker-controlled method, headers, and body included — so it must not be usable to forge requests against routes it wasn't meant to touch. By default (`replay.restrict_to_captured_routes`), a replay is only permitted when its target URI resolves to a route carrying the `anima.capture` middleware, i.e. a route Anima already captures traffic for. Any other destination returns `422 Unprocessable Entity` without dispatching the request.
+`POST /anima/api/replay` dispatches a synthetic request through your application's own HTTP Kernel — attacker-controlled method, headers, and body included — so it must not be usable to forge requests against routes it wasn't meant to touch. By default (`replay.restrict_to_captured_routes`), a replay is only permitted when its target URI resolves to a route carrying the `anima.capture` middleware (or `CaptureWebhook::class`), i.e. a route Anima already captures traffic for. Domain-scoped route groups and custom ports are also fully matched and preserved. Any other destination returns `422 Unprocessable Entity` without dispatching the request.
 
 ### Rate Limiting
 
@@ -346,7 +366,9 @@ The purge (`DELETE /anima/api/entries`) and replay (`POST /anima/api/replay`) en
 
 > [!CAUTION]
 > **ENVIRONMENT SECURITY GUARD**
-> The `BypassesReplaySignatures` trait is strictly locked to `local` and `testing` environments (`app()->environment('local', 'testing')`). In `production` environments, `isValidReplay()` is hardcoded to return `false`, preventing header spoofing attacks.
+> The `BypassesReplaySignatures` trait is strictly locked to `local` and `testing` environments (`app()->environment('local', 'testing')`). In `production` environments, `isValidReplay()` is hardcoded to return `false`.
+>
+> The bypass itself is gated on the `anima_synthetic_replay` request *attribute*, which only `KernelRequestSynthesizer` sets, never on a header. Headers on a real inbound request (for example one arriving over an ngrok/Cloudflare tunnel during local webhook development) are attacker-controlled, so this check must never be changed to read a header — doing so would let anyone who can reach the endpoint bypass signature verification.
 
 ### Long-Running Workers (Octane, Swoole, RoadRunner)
 
@@ -405,13 +427,19 @@ Services included:
 
 ## Running Automated Tests
 
-Run the PHPUnit test suite:
+Run the test suite via Composer (which automatically purges the skeleton cache and executes PHPUnit):
+
+```bash
+composer test
+```
+
+Or run PHPUnit directly:
 
 ```bash
 ./vendor/bin/phpunit
 ```
 
-All 47 tests (223 assertions) verify:
+All 65 tests (270 assertions) verify:
 - Storage drivers (`DatabaseStorageDriver`, `SqliteStorageDriver`, `RedisStorageDriver`) and `StorageManager`.
 - Webhook capture middleware with route tags and synthetic replay loop prevention.
 - Kernel request synthesizer in-memory dispatch, metric tracking, and request singleton restoration.

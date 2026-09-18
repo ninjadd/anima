@@ -21,7 +21,11 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_KEY" value="base64:6Cu/oyubwjkEQipNOcwGa/iofrWSF10hTuSVtUsHUGo="/>
+        <!-- CACHE_DRIVER (Laravel 10) was renamed to CACHE_STORE in Laravel 11+; set both so a
+             leftover .env from a prior `composer serve`/`testbench serve` run can't override the
+             test cache store (Laravel's dotenv loading won't clobber an already-set env var). -->
         <env name="CACHE_DRIVER" value="array"/>
+        <env name="CACHE_STORE" value="array"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
     </php>

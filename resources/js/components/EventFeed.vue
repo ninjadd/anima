@@ -71,7 +71,32 @@
     <!-- Feed Items -->
     <div class="flex-1 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-800/60">
       <div
-        v-if="store.entries.length === 0"
+        v-if="['entries', 'delete', 'clear'].includes(store.error?.context)"
+        class="m-3 p-3 rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs flex items-start justify-between gap-2"
+      >
+        <div>
+          <p class="font-medium text-rose-700 dark:text-rose-300">
+            {{ errorTitle }}<span v-if="store.error.status"> ({{ store.error.status }})</span>
+          </p>
+          <p class="mt-0.5 text-rose-600 dark:text-rose-400">{{ store.error.message }}</p>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button
+            v-if="store.error.context === 'entries'"
+            type="button"
+            @click="store.fetchEntries(store.pagination.current_page)"
+            class="text-rose-700 dark:text-rose-300 underline hover:no-underline"
+          >
+            Retry
+          </button>
+          <button type="button" @click="store.dismissError()" class="text-rose-500 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-200">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="store.entries.length === 0 && store.error?.context !== 'entries'"
         class="h-64 flex flex-col items-center justify-center p-6 text-center text-slate-400 dark:text-slate-500"
       >
         <svg class="w-10 h-10 mb-2 stroke-1 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,7 +109,7 @@
       <div
         v-for="entry in store.entries"
         :key="entry.id"
-        @click="store.selectEntry(entry)"
+        @click="selectEntry(entry)"
         :class="[
           'p-3.5 cursor-pointer transition relative flex flex-col space-y-1.5',
           store.activeEntry?.id === entry.id
@@ -153,13 +178,61 @@
         </div>
       </div>
     </div>
+
+    <!-- Pagination Footer -->
+    <div
+      v-if="store.pagination.last_page > 1"
+      class="flex items-center justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <button
+        type="button"
+        :disabled="store.pagination.current_page <= 1 || store.isLoading"
+        @click="store.fetchEntries(store.pagination.current_page - 1)"
+        class="px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+      >
+        Previous
+      </button>
+
+      <span class="font-mono">
+        Page {{ store.pagination.current_page }} of {{ store.pagination.last_page }}
+      </span>
+
+      <button
+        type="button"
+        :disabled="store.pagination.current_page >= store.pagination.last_page || store.isLoading"
+        @click="store.fetchEntries(store.pagination.current_page + 1)"
+        class="px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+      >
+        Next
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 
 const store = useAnimaStore();
+const router = useRouter();
+
+const selectEntry = (entry) => {
+  router.push({ name: 'workbench.entry', params: { id: entry.id } });
+};
+
+const errorTitle = computed(() => {
+  switch (store.error?.context) {
+    case 'entries':
+      return 'Failed to load webhook entries';
+    case 'delete':
+      return 'Failed to delete entry';
+    case 'clear':
+      return 'Failed to clear entries';
+    default:
+      return 'Something went wrong';
+  }
+});
 
 let searchTimeout = null;
 const handleSearch = () => {

@@ -64,7 +64,19 @@ class DatabaseStorageDriver implements PayloadStorageInterface
 
         $tags = null;
         if (isset($data['tags'])) {
-            $tags = is_string($data['tags']) ? $data['tags'] : json_encode(is_array($data['tags']) ? array_values($data['tags']) : [$data['tags']]);
+            if (is_string($data['tags'])) {
+                // Pass an already-encoded JSON string through as-is (e.g. the
+                // caller pre-serialized ['stripe','billing']); otherwise wrap a
+                // bare string (e.g. 'stripe') into a single-tag array before
+                // encoding, since PostgreSQL/MySQL JSON columns reject a raw,
+                // unquoted string literal at insert time.
+                json_decode($data['tags']);
+                $tags = json_last_error() === JSON_ERROR_NONE
+                    ? $data['tags']
+                    : json_encode([$data['tags']]);
+            } else {
+                $tags = json_encode(is_array($data['tags']) ? array_values($data['tags']) : [$data['tags']]);
+            }
         } elseif (isset($data['tag'])) {
             $tags = json_encode([$data['tag']]);
         }
@@ -185,6 +197,7 @@ class DatabaseStorageDriver implements PayloadStorageInterface
             'per_page' => (int) $perPage,
             'current_page' => $page,
             'last_page' => max(1, $lastPage),
+            'truncated' => false,
         ];
     }
 

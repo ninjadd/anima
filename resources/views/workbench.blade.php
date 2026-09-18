@@ -38,6 +38,7 @@
             'path' => config('anima.path', 'anima'),
             'csrfToken' => csrf_token(),
             'storageDriver' => config('anima.storage.driver', 'database'),
+            'pollInterval' => config('anima.poll_interval', 8),
         ]) !!};
     </script>
 </head>

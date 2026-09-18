@@ -16,8 +16,11 @@
 
       <div class="flex items-center space-x-4 text-xs font-mono text-slate-500 dark:text-slate-400">
         <div class="flex items-center space-x-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="text-slate-700 dark:text-slate-300">Listening for Webhooks</span>
+          <span
+            class="w-2 h-2 rounded-full"
+            :class="statusDotClass"
+          ></span>
+          <span class="text-slate-700 dark:text-slate-300">{{ statusLabel }}</span>
         </div>
         <span class="text-slate-300 dark:text-slate-700">|</span>
         <div class="text-slate-500 dark:text-slate-400">
@@ -53,7 +56,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useAnimaStore } from './stores/useAnimaStore';
 
+const store = useAnimaStore();
 const isDark = ref(true);
 
 onMounted(() => {
@@ -74,5 +79,17 @@ const toggleTheme = () => {
 
 const storageDriver = computed(() => {
   return window.Anima?.storageDriver || 'database';
+});
+
+const pollingEnabled = computed(() => Number(window.Anima?.pollInterval ?? 8) > 0);
+
+const statusLabel = computed(() => {
+  if (!pollingEnabled.value) return 'Manual Refresh Only';
+  return store.pollHealthy ? 'Listening for Webhooks' : 'Reconnecting…';
+});
+
+const statusDotClass = computed(() => {
+  if (!pollingEnabled.value) return 'bg-slate-400 dark:bg-slate-600';
+  return store.pollHealthy ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500';
 });
 </script>

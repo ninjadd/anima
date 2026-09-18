@@ -2,7 +2,8 @@
 
 namespace Anima\Http\Controllers;
 
-use Illuminate\Http\Response;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class AssetController
@@ -11,9 +12,9 @@ class AssetController
      * Serve a compiled asset from the package distribution directory.
      *
      * @param  string  $path
-     * @return \Illuminate\Http\Response
+     * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
-    public function show(string $path): Response
+    public function show(Request $request, string $path): BinaryFileResponse
     {
         // Sanitize path to prevent directory traversal
         $path = ltrim($path, '/\\');
@@ -34,13 +35,16 @@ class AssetController
             }
         }
 
-        $mimeType = $this->getMimeType($fullPath);
-        $content = (string) file_get_contents($fullPath);
-
-        return response($content, 200, [
-            'Content-Type' => $mimeType,
+        $response = response()->file($fullPath, [
+            'Content-Type' => $this->getMimeType($fullPath),
             'Cache-Control' => 'public, max-age=31536000',
         ]);
+
+        // Return value is unused; isNotModified() mutates $response in place,
+        // setting a 304 status and stripping the body when it matches.
+        $response->isNotModified($request);
+
+        return $response;
     }
 
     /**

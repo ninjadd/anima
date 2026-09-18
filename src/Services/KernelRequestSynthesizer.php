@@ -6,6 +6,7 @@ use Anima\Contracts\RequestSynthesizerInterface;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request as LaravelRequest;
+use Illuminate\Support\Facades\Facade;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 class KernelRequestSynthesizer implements RequestSynthesizerInterface
@@ -40,15 +41,33 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
         $server['HTTP_X_ANIMA_REPLAY'] = 'true';
         $server['HTTP_X_ANIMA_SYNTHETIC'] = 'true';
 
+        // SymfonyRequest::create() never parses $body itself - it only populates
+        // request parameters (and therefore $request->all()/input()) from the
+        // $parameters argument. JSON bodies work anyway because Laravel reads
+        // JSON straight off the raw content, but form-urlencoded webhooks
+        // (Twilio, PayPal IPN, SendGrid, ...) need it done explicitly here.
+        $parameters = [];
+        $contentType = strtolower($server['CONTENT_TYPE'] ?? '');
+
+        if ($body !== null && $body !== '' && str_starts_with($contentType, 'application/x-www-form-urlencoded')) {
+            parse_str($body, $parameters);
+        }
+
         $symfonyRequest = SymfonyRequest::create(
             $uri,
             strtoupper($method),
-            [],
+            $parameters,
             [],
             [],
             $server,
             $body
         );
+
+        // Trust signal for signature-bypass checks lives on the attributes bag,
+        // not a header: attributes can only be set by code running inside this
+        // process, whereas headers are attacker-controlled on any real inbound
+        // request (e.g. a local dev server exposed via an ngrok tunnel).
+        $symfonyRequest->attributes->set('anima_synthetic_replay', true);
 
         $laravelRequest = LaravelRequest::createFromBase($symfonyRequest);
 
@@ -56,12 +75,28 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
 
         $previousRequest = $this->app->bound('request') ? $this->app->make('request') : null;
 
-        $response = $this->kernel->handle($laravelRequest);
+        try {
+            // Intentionally not calling $this->kernel->terminate() here: it's not
+            // needed to build the response below, and this $kernel is the same
+            // singleton the outer request will terminate once it's done. Calling
+            // it now would run every registered "terminating" callback mid-request,
+            // and since Application::terminate() never clears that callback list,
+            // they would fire a second time when the real outer request terminates.
+            $response = $this->kernel->handle($laravelRequest);
+        } finally {
+            // Restore the container's 'request' binding to whatever it was before
+            // this synthetic dispatch, then bust the Request facade's cached
+            // resolved instance. The facade caches by name and only re-resolves
+            // when cleared (see Kernel::sendRequestThroughRouter()), so restoring
+            // the container binding alone leaves Request::* pointed at the
+            // synthetic request for the rest of the outer request's lifecycle.
+            if ($previousRequest !== null) {
+                $this->app->instance('request', $previousRequest);
+            } else {
+                $this->app->forgetInstance('request');
+            }
 
-        $this->kernel->terminate($laravelRequest, $response);
-
-        if ($previousRequest !== null) {
-            $this->app->instance('request', $previousRequest);
+            Facade::clearResolvedInstance('request');
         }
 
         $durationMs = round((microtime(true) - $startTime) * 1000, 2);
