@@ -67,11 +67,13 @@ class ReplayController
             return true;
         }
 
-        $path = '/' . ltrim((string) parse_url($uri, PHP_URL_PATH), '/');
-
         try {
+            // Pass the full URI, not just its path, so Symfony retains the host
+            // and port during matching. Routes scoped with Route::domain(...)
+            // only match against their configured host; stripping it here would
+            // make every domain-scoped route wrongly appear unmatched.
             $route = app('router')->getRoutes()->match(
-                Request::create($path, strtoupper($method))
+                Request::create($uri, strtoupper($method))
             );
         } catch (\Throwable $e) {
             return false;

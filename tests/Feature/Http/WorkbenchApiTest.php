@@ -199,6 +199,32 @@ class WorkbenchApiTest extends TestCase
     }
 
     #[Test]
+    public function it_dispatches_synthetic_replay_to_a_domain_scoped_route(): void
+    {
+        Route::domain('api.example.test')->post('/webhooks/stripe', function (Request $request) {
+            return response()->json([
+                'received' => true,
+                'echo' => $request->all(),
+            ], 200);
+        })->middleware('anima.capture');
+
+        $response = $this->postJson('/anima/api/replay', [
+            'uri' => 'http://api.example.test/webhooks/stripe',
+            'method' => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => ['ping' => 'pong'],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status_code', 200)
+            ->assertJsonPath('is_synthetic', true);
+
+        $body = json_decode($response->json('body'), true);
+        $this->assertTrue($body['received']);
+        $this->assertSame('pong', $body['echo']['ping']);
+    }
+
+    #[Test]
     public function it_rejects_replay_to_a_route_not_tagged_with_anima_capture(): void
     {
         $invoked = false;
