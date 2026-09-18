@@ -149,6 +149,8 @@ class RedisStorageDriver implements PayloadStorageInterface
      */
     public function paginate(int $perPage = 25, array $filters = []): array
     {
+        $this->pruneExpiredIndexEntries();
+
         $page = (int) ($filters['page'] ?? 1);
         $page = max(1, $page);
 
@@ -164,16 +166,12 @@ class RedisStorageDriver implements PayloadStorageInterface
 
         if ($hasFilters) {
             $allIds = $this->redis->zrevrange($this->getIndexKey(), 0, -1) ?: [];
+            $records = $this->fetchRecords($allIds);
+
             $filtered = [];
-
             foreach ($allIds as $id) {
-                $record = $this->find((string) $id);
-                if (! $record) {
-                    $this->redis->zrem($this->getIndexKey(), $id);
-                    continue;
-                }
-
-                if ($this->matchesFilters($record, $filters)) {
+                $record = $records[(string) $id] ?? null;
+                if ($record && $this->matchesFilters($record, $filters)) {
                     $filtered[] = $record;
                 }
             }
@@ -197,14 +195,12 @@ class RedisStorageDriver implements PayloadStorageInterface
         $stop = $start + $perPage - 1;
 
         $ids = $this->redis->zrevrange($this->getIndexKey(), $start, $stop) ?: [];
-        $items = [];
+        $records = $this->fetchRecords($ids);
 
+        $items = [];
         foreach ($ids as $id) {
-            $record = $this->find((string) $id);
-            if ($record) {
-                $items[] = $record;
-            } else {
-                $this->redis->zrem($this->getIndexKey(), $id);
+            if (isset($records[(string) $id])) {
+                $items[] = $records[(string) $id];
             }
         }
 
@@ -217,6 +213,55 @@ class RedisStorageDriver implements PayloadStorageInterface
             'current_page' => $page,
             'last_page' => max(1, $lastPage),
         ];
+    }
+
+    /**
+     * Remove index entries whose configured TTL window has elapsed. Redis's
+     * own per-key TTL (set via setex() in store()) removes the payload key
+     * automatically, but never touches this sorted-set index on its own, so
+     * without this the index accumulates ids for keys that no longer exist.
+     */
+    protected function pruneExpiredIndexEntries(): void
+    {
+        if ($this->ttl && $this->ttl > 0) {
+            $this->redis->zremrangebyscore($this->getIndexKey(), '-inf', time() - $this->ttl);
+        }
+    }
+
+    /**
+     * Batch-fetch and decode records for the given ids via MGET (chunked),
+     * instead of one GET per id, pruning any id whose payload key has already
+     * expired out from under the index.
+     *
+     * @param array<int, string> $ids
+     * @return array<string, array<string, mixed>> records keyed by id
+     */
+    protected function fetchRecords(array $ids): array
+    {
+        $records = [];
+        $staleIds = [];
+
+        foreach (array_chunk($ids, 250) as $chunk) {
+            $keys = array_map(fn ($id) => $this->getItemKey((string) $id), $chunk);
+            $values = $this->redis->mget($keys) ?: [];
+
+            foreach ($chunk as $index => $id) {
+                $raw = $values[$index] ?? null;
+                $data = ($raw === null || $raw === false) ? null : json_decode($raw, true);
+
+                if (is_array($data)) {
+                    $records[(string) $id] = $this->formatRecord($data);
+                } else {
+                    $staleIds[] = (string) $id;
+                }
+            }
+        }
+
+        foreach ($staleIds as $id) {
+            $this->redis->zrem($this->getIndexKey(), $id);
+        }
+
+        return $records;
     }
 
     /**

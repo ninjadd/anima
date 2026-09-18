@@ -79,4 +79,25 @@ class FakeRedis
     {
         unset($this->sortedSets[$key][$member]);
     }
+
+    public function zremrangebyscore(string $key, string|float $min, string|float $max): void
+    {
+        if (! isset($this->sortedSets[$key])) {
+            return;
+        }
+
+        $min = $min === '-inf' ? -INF : (float) $min;
+        $max = $max === '+inf' ? INF : (float) $max;
+
+        foreach ($this->sortedSets[$key] as $member => $score) {
+            if ($score >= $min && $score <= $max) {
+                unset($this->sortedSets[$key][$member]);
+            }
+        }
+    }
+
+    public function mget(array $keys): array
+    {
+        return array_map(fn ($key) => $this->storage[$key] ?? null, $keys);
+    }
 }
