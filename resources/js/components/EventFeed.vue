@@ -153,6 +153,34 @@
         </div>
       </div>
     </div>
+
+    <!-- Pagination Footer -->
+    <div
+      v-if="store.pagination.last_page > 1"
+      class="flex items-center justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <button
+        type="button"
+        :disabled="store.pagination.current_page <= 1 || store.isLoading"
+        @click="store.fetchEntries(store.pagination.current_page - 1)"
+        class="px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+      >
+        Previous
+      </button>
+
+      <span class="font-mono">
+        Page {{ store.pagination.current_page }} of {{ store.pagination.last_page }}
+      </span>
+
+      <button
+        type="button"
+        :disabled="store.pagination.current_page >= store.pagination.last_page || store.isLoading"
+        @click="store.fetchEntries(store.pagination.current_page + 1)"
+        class="px-2 py-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+      >
+        Next
+      </button>
+    </div>
   </div>
 </template>
 
