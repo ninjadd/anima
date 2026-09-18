@@ -5,7 +5,10 @@ namespace Anima\Tests\Feature\Services;
 use Anima\Contracts\RequestSynthesizerInterface;
 use Anima\Services\KernelRequestSynthesizer;
 use Anima\Tests\TestCase;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Request as RequestFacade;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -135,5 +138,57 @@ class KernelRequestSynthesizerTest extends TestCase
         $this->assertSame(422, $result['status_code']);
         $this->assertStringContainsString('Validation failed', $result['body']);
         $this->assertTrue($result['is_synthetic']);
+    }
+
+    #[Test]
+    public function it_restores_the_request_facade_to_the_outer_request_after_synthesizing(): void
+    {
+        Route::get('/api/facade-check', function () {
+            // Force the Request facade to resolve and cache the synthetic
+            // request, exactly as application middleware/controllers would.
+            return response()->json(['path' => RequestFacade::path()]);
+        });
+
+        $outerRequest = Request::create('/anima/api/replay', 'POST');
+        $this->app->instance('request', $outerRequest);
+        Facade::clearResolvedInstance('request');
+        $this->assertSame($outerRequest, RequestFacade::getFacadeRoot());
+
+        $this->synthesizer->synthesize('/api/facade-check', 'GET');
+
+        $this->assertSame(
+            $outerRequest,
+            RequestFacade::getFacadeRoot(),
+            'Request facade should point back at the outer request, not remain stuck on the synthetic replay request.'
+        );
+    }
+
+    #[Test]
+    public function it_does_not_prematurely_run_terminating_callbacks(): void
+    {
+        Route::get('/api/terminate-check', function () {
+            return response()->json(['ok' => true]);
+        });
+
+        $calls = 0;
+        $this->app->terminating(function () use (&$calls) {
+            $calls++;
+        });
+
+        $this->synthesizer->synthesize('/api/terminate-check', 'GET');
+
+        $this->assertSame(
+            0,
+            $calls,
+            'synthesize() should not invoke kernel terminate/terminating callbacks itself; that belongs to the real outer request lifecycle.'
+        );
+
+        // Simulate the real outer request's own termination afterward.
+        $this->app->make(Kernel::class)->terminate(
+            Request::create('/anima/api/replay', 'POST'),
+            response()->json(['ok' => true])
+        );
+
+        $this->assertSame(1, $calls);
     }
 }

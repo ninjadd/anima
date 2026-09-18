@@ -6,6 +6,7 @@ use Anima\Contracts\RequestSynthesizerInterface;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Http\Request as LaravelRequest;
+use Illuminate\Support\Facades\Facade;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 class KernelRequestSynthesizer implements RequestSynthesizerInterface
@@ -62,12 +63,28 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
 
         $previousRequest = $this->app->bound('request') ? $this->app->make('request') : null;
 
-        $response = $this->kernel->handle($laravelRequest);
+        try {
+            // Intentionally not calling $this->kernel->terminate() here: it's not
+            // needed to build the response below, and this $kernel is the same
+            // singleton the outer request will terminate once it's done. Calling
+            // it now would run every registered "terminating" callback mid-request,
+            // and since Application::terminate() never clears that callback list,
+            // they would fire a second time when the real outer request terminates.
+            $response = $this->kernel->handle($laravelRequest);
+        } finally {
+            // Restore the container's 'request' binding to whatever it was before
+            // this synthetic dispatch, then bust the Request facade's cached
+            // resolved instance. The facade caches by name and only re-resolves
+            // when cleared (see Kernel::sendRequestThroughRouter()), so restoring
+            // the container binding alone leaves Request::* pointed at the
+            // synthetic request for the rest of the outer request's lifecycle.
+            if ($previousRequest !== null) {
+                $this->app->instance('request', $previousRequest);
+            } else {
+                $this->app->forgetInstance('request');
+            }
 
-        $this->kernel->terminate($laravelRequest, $response);
-
-        if ($previousRequest !== null) {
-            $this->app->instance('request', $previousRequest);
+            Facade::clearResolvedInstance('request');
         }
 
         $durationMs = round((microtime(true) - $startTime) * 1000, 2);
