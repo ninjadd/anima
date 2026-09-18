@@ -9,6 +9,22 @@ export const useAnimaStore = defineStore('anima', () => {
   const isReplaying = ref(false);
   const lastReplayResult = ref(null);
   const pollHealthy = ref(true);
+  const error = ref(null);
+
+  const describeError = (err, fallback) => ({
+    status: err.response?.status ?? null,
+    message: err.response?.data?.message || err.message || fallback,
+  });
+
+  const clearErrorIfContext = (context) => {
+    if (error.value?.context === context) {
+      error.value = null;
+    }
+  };
+
+  const dismissError = () => {
+    error.value = null;
+  };
 
   const filters = reactive({
     search: '',
@@ -43,12 +59,16 @@ export const useAnimaStore = defineStore('anima', () => {
       pagination.current_page = data.current_page || 1;
       pagination.last_page = data.last_page || 1;
 
-      if (!activeEntry.value && entries.value.length > 0) {
+      if (!activeEntry.value && entries.value.length > 0 && error.value?.context !== 'entry') {
         activeEntry.value = entries.value[0];
       }
+      clearErrorIfContext('entries');
       return true;
-    } catch (error) {
-      console.error('Failed to fetch Anima entries:', error);
+    } catch (err) {
+      console.error('Failed to fetch Anima entries:', err);
+      if (!silent) {
+        error.value = { context: 'entries', ...describeError(err, 'Failed to load webhook entries.') };
+      }
       return false;
     } finally {
       if (!silent) isLoading.value = false;
@@ -61,8 +81,11 @@ export const useAnimaStore = defineStore('anima', () => {
       const { data } = await api.get(`/entries/${id}`);
       activeEntry.value = data;
       lastReplayResult.value = null;
-    } catch (error) {
-      console.error(`Failed to load entry ${id}:`, error);
+      clearErrorIfContext('entry');
+    } catch (err) {
+      console.error(`Failed to load entry ${id}:`, err);
+      activeEntry.value = null;
+      error.value = { context: 'entry', ...describeError(err, 'Failed to load this webhook entry.') };
     } finally {
       isLoading.value = false;
     }
@@ -82,8 +105,10 @@ export const useAnimaStore = defineStore('anima', () => {
       if (activeEntry.value?.id === id) {
         activeEntry.value = entries.value[0] || null;
       }
-    } catch (error) {
-      console.error(`Failed to delete entry ${id}:`, error);
+      clearErrorIfContext('delete');
+    } catch (err) {
+      console.error(`Failed to delete entry ${id}:`, err);
+      error.value = { context: 'delete', ...describeError(err, 'Failed to delete this entry.') };
     }
   };
 
@@ -94,8 +119,10 @@ export const useAnimaStore = defineStore('anima', () => {
       activeEntry.value = null;
       lastReplayResult.value = null;
       pagination.total = 0;
-    } catch (error) {
-      console.error('Failed to clear entries:', error);
+      clearErrorIfContext('clear');
+    } catch (err) {
+      console.error('Failed to clear entries:', err);
+      error.value = { context: 'clear', ...describeError(err, 'Failed to clear entries.') };
     }
   };
 
@@ -188,6 +215,7 @@ export const useAnimaStore = defineStore('anima', () => {
     isReplaying,
     lastReplayResult,
     pollHealthy,
+    error,
     filters,
     pagination,
     fetchEntries,
@@ -198,5 +226,6 @@ export const useAnimaStore = defineStore('anima', () => {
     triggerReplay,
     startPolling,
     stopPolling,
+    dismissError,
   };
 });
