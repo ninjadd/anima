@@ -148,4 +148,39 @@ class DatabaseStorageDriverTest extends TestCase
         $this->assertNull($this->driver->find($id2));
         $this->assertSame(0, $this->driver->paginate()['total']);
     }
+
+    #[Test]
+    public function it_encodes_a_bare_string_tag_as_valid_json_before_storing(): void
+    {
+        $id = $this->driver->store([
+            'uri' => 'https://api.example.com/webhooks/stripe',
+            'tags' => 'stripe',
+        ]);
+
+        // Read the raw column value directly, bypassing find()/formatRow()'s
+        // decode-with-fallback, to prove the driver writes valid JSON (required
+        // by PostgreSQL/MySQL's native JSON column type) rather than relying on
+        // that fallback to paper over an invalid write. SQLite has no such
+        // validation, so this assertion is what actually guards the fix.
+        $raw = DB::table('anima_entries')->where('id', $id)->value('tags');
+
+        json_decode($raw);
+        $this->assertSame(JSON_ERROR_NONE, json_last_error(), 'Stored tags value is not valid JSON.');
+        $this->assertSame(['stripe'], json_decode($raw, true));
+
+        $entry = $this->driver->find($id);
+        $this->assertSame(['stripe'], $entry['tags']);
+    }
+
+    #[Test]
+    public function it_passes_through_an_already_json_encoded_tags_string(): void
+    {
+        $id = $this->driver->store([
+            'uri' => 'https://api.example.com/webhooks/stripe',
+            'tags' => json_encode(['stripe', 'billing']),
+        ]);
+
+        $entry = $this->driver->find($id);
+        $this->assertSame(['stripe', 'billing'], $entry['tags']);
+    }
 }
