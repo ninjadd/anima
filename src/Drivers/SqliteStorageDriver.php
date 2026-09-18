@@ -9,6 +9,17 @@ use PDO;
 class SqliteStorageDriver extends DatabaseStorageDriver
 {
     /**
+     * Database/table combinations whose schema has already been created in
+     * this process, keyed by "{$databasePath}:{$table}". Keying by identity
+     * (rather than a single shared flag) matters because a process can
+     * legitimately open more than one SQLite database during its lifetime,
+     * e.g. in tests or multi-tenant setups.
+     *
+     * @var array<string, true>
+     */
+    protected static array $initializedSchemas = [];
+
+    /**
      * Create a new SQLite storage driver instance.
      */
     public function __construct(
@@ -17,9 +28,39 @@ class SqliteStorageDriver extends DatabaseStorageDriver
     ) {
         $this->assertValidTableName($table);
 
+        $this->databasePath = $this->resolveDatabasePath($this->databasePath);
+
         $connection = $this->resolveSqliteConnection($this->databasePath);
         parent::__construct($connection, $table);
-        $this->ensureTableExists();
+
+        $schemaKey = "{$this->databasePath}:{$table}";
+        if (! isset(self::$initializedSchemas[$schemaKey])) {
+            $this->ensureTableExists();
+            self::$initializedSchemas[$schemaKey] = true;
+        }
+    }
+
+    /**
+     * Resolve a relative database path against the application's base path.
+     * A relative path resolves against getcwd(), which differs between the
+     * web server, CLI, and queue worker processes; anchoring it to base_path()
+     * keeps it consistent across all of them.
+     */
+    protected function resolveDatabasePath(string $databasePath): string
+    {
+        if ($databasePath === ':memory:' || $this->isAbsolutePath($databasePath)) {
+            return $databasePath;
+        }
+
+        return base_path($databasePath);
+    }
+
+    /**
+     * Determine whether the given path is absolute, on Unix or Windows.
+     */
+    protected function isAbsolutePath(string $path): bool
+    {
+        return (bool) preg_match('#^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)#', $path);
     }
 
     /**
@@ -63,6 +104,13 @@ class SqliteStorageDriver extends DatabaseStorageDriver
         $pdo = new PDO("sqlite:{$databasePath}", null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         ]);
+
+        // WAL lets readers proceed without blocking on a writer, and an explicit
+        // busy_timeout bounds how long a write waits under contention instead of
+        // relying on PDO_SQLITE's own 60-second default (a long silent hang is
+        // worse for a webhook endpoint than a fast, predictable retry window).
+        $pdo->exec('PRAGMA journal_mode = WAL;');
+        $pdo->exec('PRAGMA busy_timeout = 5000;');
 
         return new SQLiteConnection($pdo, $databasePath, '', [
             'driver' => 'sqlite',

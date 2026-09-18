@@ -25,8 +25,11 @@ class SqliteStorageDriverTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (file_exists($this->tempDbPath)) {
-            @unlink($this->tempDbPath);
+        // WAL mode leaves -wal/-shm companion files next to the database file.
+        foreach ([$this->tempDbPath, "{$this->tempDbPath}-wal", "{$this->tempDbPath}-shm"] as $file) {
+            if (file_exists($file)) {
+                @unlink($file);
+            }
         }
         if (is_dir($this->tempDbDir)) {
             @rmdir($this->tempDbDir);
@@ -128,6 +131,49 @@ class SqliteStorageDriverTest extends TestCase
 
         $this->assertSame('my_custom_entries', $driver->getTable());
 
-        @unlink($path);
+        foreach ([$path, "{$path}-wal", "{$path}-shm"] as $file) {
+            @unlink($file);
+        }
+    }
+
+    #[Test]
+    public function it_configures_wal_mode_and_a_bounded_busy_timeout(): void
+    {
+        $connection = $this->driver->getConnection();
+
+        $this->assertSame('wal', strtolower($connection->selectOne('PRAGMA journal_mode')->journal_mode));
+        $this->assertSame(5000, (int) $connection->selectOne('PRAGMA busy_timeout')->timeout);
+    }
+
+    #[Test]
+    public function it_creates_the_schema_independently_for_each_distinct_database_path(): void
+    {
+        // Guards against a single shared "already initialized" flag: a second
+        // driver pointed at a different file must still get its own schema,
+        // not silently skip creation because some other database already ran it.
+        $otherPath = $this->tempDbDir . '/second_isolated_anima.sqlite';
+        $other = new SqliteStorageDriver($otherPath);
+
+        $id = $other->store(['method' => 'GET', 'uri' => 'https://api.example.com/second']);
+
+        $this->assertNotNull($other->find($id));
+
+        foreach ([$otherPath, "{$otherPath}-wal", "{$otherPath}-shm"] as $file) {
+            @unlink($file);
+        }
+    }
+
+    #[Test]
+    public function it_resolves_a_relative_database_path_against_the_application_base_path(): void
+    {
+        $relative = 'anima-relative-test-' . uniqid() . '.sqlite';
+        $driver = new SqliteStorageDriver($relative);
+
+        $this->assertSame(base_path($relative), $driver->getDatabasePath());
+        $this->assertFileExists(base_path($relative));
+
+        foreach ([base_path($relative), base_path($relative) . '-wal', base_path($relative) . '-shm'] as $file) {
+            @unlink($file);
+        }
     }
 }
