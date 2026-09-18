@@ -74,6 +74,8 @@ Designed for modern API development, Anima includes built-in cryptographic signa
 - **Replay Result Slide-Over:** Real-time modal detailing synthetic response status codes, execution durations, and formatted payload viewers with copy-to-clipboard actions.
 - **Live-Updating Feed:** The dashboard polls for newly captured webhooks (interval configurable via `poll_interval`, disable with `0`) and reflects real connection health in the header — "Listening for Webhooks" while polling succeeds, "Reconnecting…" if it starts failing.
 - **Shareable, Deep-Linkable Entries:** Selecting an event updates the URL (`/anima/{id}`), so refreshing, sharing a link, or using browser back/forward returns to the same entry instead of resetting to the first page.
+- **Paginated Event Feed:** Seamlessly browse historical webhooks with Previous/Next pagination controls.
+- **Interactive Tag Filtering:** Filter events by provider tags with instant workbench synchronization.
 
 ### 6. Request Context & Header Inspector
 - **Dynamic Header Manipulation:** Add, edit, remove, and reset request headers before triggering synthetic replays.
@@ -252,6 +254,7 @@ return [
 Attach the `anima.capture` middleware alias to any webhook route. You can pass optional comma-separated tags to categorize entries:
 
 ```php
+use Anima\Http\Middleware\CaptureWebhook;
 use Illuminate\Support\Facades\Route;
 
 // Standard capture
@@ -264,6 +267,10 @@ Route::post('/webhooks/stripe', [StripeWebhookController::class, 'handle'])
 
 Route::post('/webhooks/github', [GitHubWebhookController::class, 'handle'])
     ->middleware('anima.capture:github,vcs');
+
+// Class-string middleware registration is also supported
+Route::post('/webhooks/custom', [CustomWebhookController::class, 'handle'])
+    ->middleware(CaptureWebhook::class);
 ```
 
 ---
@@ -349,7 +356,7 @@ Extend this list with any additional secret or signature headers your webhook pr
 
 ### Replay Destination Restrictions
 
-`POST /anima/api/replay` dispatches a synthetic request through your application's own HTTP Kernel — attacker-controlled method, headers, and body included — so it must not be usable to forge requests against routes it wasn't meant to touch. By default (`replay.restrict_to_captured_routes`), a replay is only permitted when its target URI resolves to a route carrying the `anima.capture` middleware, i.e. a route Anima already captures traffic for. Any other destination returns `422 Unprocessable Entity` without dispatching the request.
+`POST /anima/api/replay` dispatches a synthetic request through your application's own HTTP Kernel — attacker-controlled method, headers, and body included — so it must not be usable to forge requests against routes it wasn't meant to touch. By default (`replay.restrict_to_captured_routes`), a replay is only permitted when its target URI resolves to a route carrying the `anima.capture` middleware (or `CaptureWebhook::class`), i.e. a route Anima already captures traffic for. Domain-scoped route groups and custom ports are also fully matched and preserved. Any other destination returns `422 Unprocessable Entity` without dispatching the request.
 
 ### Rate Limiting
 
@@ -420,7 +427,13 @@ Services included:
 
 ## Running Automated Tests
 
-Run the PHPUnit test suite:
+Run the test suite via Composer (which automatically purges the skeleton cache and executes PHPUnit):
+
+```bash
+composer test
+```
+
+Or run PHPUnit directly:
 
 ```bash
 ./vendor/bin/phpunit
