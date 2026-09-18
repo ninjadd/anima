@@ -4,6 +4,17 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [vue()],
+  // Assets are served from a configurable, potentially-nested Laravel route
+  // (anima.path, default "anima/assets/..."), not the site root, so asset
+  // URLs (including the worker URLs Vite emits for `new Worker(new URL(...))`)
+  // must resolve relative to wherever app.js was actually loaded from.
+  base: './',
+  // MonacoPayloadEditor.vue creates its workers with `{ type: 'module' }`,
+  // but Monaco's worker entry files use ESM import/export; Vite's default
+  // worker output ('iife') can't satisfy that, so it must match here.
+  worker: {
+    format: 'es',
+  },
   build: {
     outDir: 'resources/dist',
     emptyOutDir: true,

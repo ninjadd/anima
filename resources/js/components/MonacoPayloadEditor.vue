@@ -25,6 +25,26 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import 'monaco-editor/esm/vs/language/json/monaco.contribution';
 
+// Without this, Monaco tries to spin up its language/editor workers via a
+// legacy AMD-style loader that doesn't exist in this ESM build, logs
+// "Could not create web worker(s)", and throws when the json language
+// service falls back to running in the main thread.
+self.MonacoEnvironment = {
+  getWorker(_workerId, label) {
+    if (label === 'json') {
+      return new Worker(
+        new URL('monaco-editor/esm/vs/language/json/json.worker.js', import.meta.url),
+        { type: 'module' }
+      );
+    }
+
+    return new Worker(
+      new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url),
+      { type: 'module' }
+    );
+  },
+};
+
 const props = defineProps({
   modelValue: {
     type: [String, Object, Array],
