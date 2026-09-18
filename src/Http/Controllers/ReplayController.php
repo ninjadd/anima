@@ -3,6 +3,7 @@
 namespace Anima\Http\Controllers;
 
 use Anima\Contracts\RequestSynthesizerInterface;
+use Anima\Http\Middleware\CaptureWebhook;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -76,8 +77,15 @@ class ReplayController
             return false;
         }
 
+        // A route may carry the capture middleware either by its 'anima.capture'
+        // alias (optionally with ':tag,tag' parameters) or by its FQCN, since
+        // gatherMiddleware() returns whichever form the route registered.
+        $captureMiddleware = ['anima.capture', CaptureWebhook::class];
+
         foreach ($route->gatherMiddleware() as $middleware) {
-            if ($middleware === 'anima.capture' || str_starts_with($middleware, 'anima.capture:')) {
+            $base = explode(':', $middleware, 2)[0];
+
+            if (in_array($base, $captureMiddleware, true)) {
                 return true;
             }
         }

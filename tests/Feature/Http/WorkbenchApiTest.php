@@ -3,6 +3,7 @@
 namespace Anima\Tests\Feature\Http;
 
 use Anima\Contracts\PayloadStorageInterface;
+use Anima\Http\Middleware\CaptureWebhook;
 use Anima\Tests\TestCase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -157,6 +158,32 @@ class WorkbenchApiTest extends TestCase
 
         $response = $this->postJson('/anima/api/replay', [
             'uri' => '/api/test-receiver',
+            'method' => 'POST',
+            'headers' => ['Content-Type' => 'application/json'],
+            'body' => ['ping' => 'pong'],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status_code', 200)
+            ->assertJsonPath('is_synthetic', true);
+
+        $body = json_decode($response->json('body'), true);
+        $this->assertTrue($body['received']);
+        $this->assertSame('pong', $body['echo']['ping']);
+    }
+
+    #[Test]
+    public function it_dispatches_synthetic_replay_to_a_route_tagged_via_class_string_middleware(): void
+    {
+        Route::post('/api/class-middleware-receiver', function (Request $request) {
+            return response()->json([
+                'received' => true,
+                'echo' => $request->all(),
+            ], 200);
+        })->middleware(CaptureWebhook::class);
+
+        $response = $this->postJson('/anima/api/replay', [
+            'uri' => '/api/class-middleware-receiver',
             'method' => 'POST',
             'headers' => ['Content-Type' => 'application/json'],
             'body' => ['ping' => 'pong'],
