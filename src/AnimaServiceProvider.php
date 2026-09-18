@@ -4,6 +4,7 @@ namespace Anima;
 
 use Anima\Contracts\PayloadStorageInterface;
 use Anima\Contracts\RequestSynthesizerInterface;
+use Anima\Http\Controllers\AssetController;
 use Anima\Http\Middleware\Authorize;
 use Anima\Http\Middleware\CaptureWebhook;
 use Anima\Managers\StorageManager;
@@ -85,6 +86,14 @@ class AnimaServiceProvider extends ServiceProvider
             (array) config('anima.middleware', ['web']),
             ['anima.authorize']
         );
+
+        // Assets are static, unauthenticated build output. Serve them without
+        // the web middleware group (no session/CSRF/cookie overhead) and
+        // without anima.authorize, so a custom Anima::auth() callback never
+        // needs to run for a plain JS/CSS request.
+        Route::get("{$path}/assets/{asset}", [AssetController::class, 'show'])
+            ->where('asset', '.*')
+            ->name('anima.assets');
 
         Route::group([
             'prefix' => "{$path}/api",

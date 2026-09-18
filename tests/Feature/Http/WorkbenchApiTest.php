@@ -58,7 +58,36 @@ class WorkbenchApiTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertStringContainsString('text/javascript', $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('anima test', $response->getContent());
+        $this->assertStringContainsString(
+            'anima test',
+            file_get_contents($response->baseResponse->getFile()->getPathname())
+        );
+    }
+
+    #[Test]
+    public function it_serves_assets_without_starting_a_session_or_cookies(): void
+    {
+        $response = $this->get('/anima/assets/test-asset.js');
+
+        $response->assertStatus(200);
+        $this->assertFalse($response->headers->has('Set-Cookie'));
+        $this->assertFalse($this->app['session']->isStarted());
+    }
+
+    #[Test]
+    public function it_supports_conditional_requests_for_assets(): void
+    {
+        $first = $this->get('/anima/assets/test-asset.js');
+        $first->assertStatus(200);
+
+        $lastModified = $first->headers->get('Last-Modified');
+        $this->assertNotEmpty($lastModified);
+
+        $second = $this->get('/anima/assets/test-asset.js', [
+            'If-Modified-Since' => $lastModified,
+        ]);
+
+        $second->assertStatus(304);
     }
 
     #[Test]
