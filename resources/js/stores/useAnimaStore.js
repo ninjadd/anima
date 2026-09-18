@@ -65,8 +65,8 @@ export const useAnimaStore = defineStore('anima', () => {
     }
   };
 
-  const selectEntry = (entry) => {
-    activeEntry.value = entry;
+  const selectFirstEntry = () => {
+    activeEntry.value = entries.value[0] || null;
     lastReplayResult.value = null;
   };
 
@@ -135,7 +135,7 @@ export const useAnimaStore = defineStore('anima', () => {
     pagination,
     fetchEntries,
     loadEntry,
-    selectEntry,
+    selectFirstEntry,
     deleteEntry,
     clearEntries,
     triggerReplay,

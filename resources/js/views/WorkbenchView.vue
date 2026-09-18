@@ -13,14 +13,31 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 import EventFeed from '../components/EventFeed.vue';
 import ReplayInspector from '../components/ReplayInspector.vue';
 
 const store = useAnimaStore();
+const route = useRoute();
 
 onMounted(() => {
   store.fetchEntries(1);
+
+  if (route.params.id) {
+    store.loadEntry(route.params.id);
+  }
 });
+
+watch(
+  () => route.params.id,
+  (id) => {
+    if (id) {
+      store.loadEntry(id);
+    } else {
+      store.selectFirstEntry();
+    }
+  }
+);
 </script>

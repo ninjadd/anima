@@ -84,7 +84,7 @@
       <div
         v-for="entry in store.entries"
         :key="entry.id"
-        @click="store.selectEntry(entry)"
+        @click="selectEntry(entry)"
         :class="[
           'p-3.5 cursor-pointer transition relative flex flex-col space-y-1.5',
           store.activeEntry?.id === entry.id
@@ -185,9 +185,15 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 
 const store = useAnimaStore();
+const router = useRouter();
+
+const selectEntry = (entry) => {
+  router.push({ name: 'workbench.entry', params: { id: entry.id } });
+};
 
 let searchTimeout = null;
 const handleSearch = () => {

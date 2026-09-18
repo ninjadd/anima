@@ -61,7 +61,7 @@
 
         <button
           type="button"
-          @click="store.deleteEntry(store.activeEntry.id)"
+          @click="removeActiveEntry"
           class="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
           title="Delete Entry"
         >
@@ -171,12 +171,19 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useAnimaStore } from '../stores/useAnimaStore';
 import MonacoPayloadEditor from './MonacoPayloadEditor.vue';
 import HeaderInspector from './HeaderInspector.vue';
 import ReplayResultModal from './ReplayResultModal.vue';
 
 const store = useAnimaStore();
+const router = useRouter();
+
+const removeActiveEntry = async () => {
+  await store.deleteEntry(store.activeEntry.id);
+  router.push('/');
+};
 
 const activeTab = ref('payload');
 const replayMethod = ref('POST');
