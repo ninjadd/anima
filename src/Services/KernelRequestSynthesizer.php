@@ -41,10 +41,22 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
         $server['HTTP_X_ANIMA_REPLAY'] = 'true';
         $server['HTTP_X_ANIMA_SYNTHETIC'] = 'true';
 
+        // SymfonyRequest::create() never parses $body itself - it only populates
+        // request parameters (and therefore $request->all()/input()) from the
+        // $parameters argument. JSON bodies work anyway because Laravel reads
+        // JSON straight off the raw content, but form-urlencoded webhooks
+        // (Twilio, PayPal IPN, SendGrid, ...) need it done explicitly here.
+        $parameters = [];
+        $contentType = strtolower($server['CONTENT_TYPE'] ?? '');
+
+        if ($body !== null && $body !== '' && str_starts_with($contentType, 'application/x-www-form-urlencoded')) {
+            parse_str($body, $parameters);
+        }
+
         $symfonyRequest = SymfonyRequest::create(
             $uri,
             strtoupper($method),
-            [],
+            $parameters,
             [],
             [],
             $server,

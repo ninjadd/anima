@@ -141,6 +141,35 @@ class KernelRequestSynthesizerTest extends TestCase
     }
 
     #[Test]
+    public function it_populates_request_parameters_for_form_urlencoded_bodies(): void
+    {
+        Route::post('/webhooks/twilio', function (Request $request) {
+            return response()->json([
+                'all' => $request->all(),
+                'from' => $request->input('From'),
+            ], 200);
+        });
+
+        $result = $this->synthesizer->synthesize(
+            uri: '/webhooks/twilio',
+            method: 'POST',
+            headers: ['Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8'],
+            body: 'From=%2B15551234567&To=%2B15559876543&Body=Hello'
+        );
+
+        $this->assertSame(200, $result['status_code']);
+
+        $decoded = json_decode($result['body'], true);
+        $this->assertSame('+15551234567', $decoded['from']);
+        $this->assertSame([
+            'From' => '+15551234567',
+            'To' => '+15559876543',
+            'Body' => 'Hello',
+        ], $decoded['all']);
+        $this->assertTrue($result['is_synthetic']);
+    }
+
+    #[Test]
     public function it_restores_the_request_facade_to_the_outer_request_after_synthesizing(): void
     {
         Route::get('/api/facade-check', function () {
