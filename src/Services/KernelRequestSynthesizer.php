@@ -50,6 +50,12 @@ class KernelRequestSynthesizer implements RequestSynthesizerInterface
             $body
         );
 
+        // Trust signal for signature-bypass checks lives on the attributes bag,
+        // not a header: attributes can only be set by code running inside this
+        // process, whereas headers are attacker-controlled on any real inbound
+        // request (e.g. a local dev server exposed via an ngrok tunnel).
+        $symfonyRequest->attributes->set('anima_synthetic_replay', true);
+
         $laravelRequest = LaravelRequest::createFromBase($symfonyRequest);
 
         $startTime = microtime(true);

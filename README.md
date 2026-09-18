@@ -346,7 +346,9 @@ The purge (`DELETE /anima/api/entries`) and replay (`POST /anima/api/replay`) en
 
 > [!CAUTION]
 > **ENVIRONMENT SECURITY GUARD**
-> The `BypassesReplaySignatures` trait is strictly locked to `local` and `testing` environments (`app()->environment('local', 'testing')`). In `production` environments, `isValidReplay()` is hardcoded to return `false`, preventing header spoofing attacks.
+> The `BypassesReplaySignatures` trait is strictly locked to `local` and `testing` environments (`app()->environment('local', 'testing')`). In `production` environments, `isValidReplay()` is hardcoded to return `false`.
+>
+> The bypass itself is gated on the `anima_synthetic_replay` request *attribute*, which only `KernelRequestSynthesizer` sets, never on a header. Headers on a real inbound request (for example one arriving over an ngrok/Cloudflare tunnel during local webhook development) are attacker-controlled, so this check must never be changed to read a header — doing so would let anyone who can reach the endpoint bypass signature verification.
 
 ### Long-Running Workers (Octane, Swoole, RoadRunner)
 

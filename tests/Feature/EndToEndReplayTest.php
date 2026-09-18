@@ -149,4 +149,33 @@ class EndToEndReplayTest extends TestCase
         $this->assertSame(401, $result['status_code']);
         $this->assertStringContainsString('Invalid signature', $result['body']);
     }
+
+    #[Test]
+    public function it_rejects_a_spoofed_replay_header_sent_over_a_real_http_request(): void
+    {
+        // Simulates an external attacker (e.g. reaching a local dev server exposed
+        // via an ngrok/Cloudflare tunnel) forging the X-Anima-Replay header on a
+        // real inbound request, without ever going through KernelRequestSynthesizer.
+        // The bypass must only trigger from the internal 'anima_synthetic_replay'
+        // request attribute, which a raw HTTP request can never set.
+        $forgedPayload = ['event' => 'forged_by_attacker'];
+        $rawJson = json_encode($forgedPayload);
+
+        $response = $this->call(
+            'POST',
+            '/api/webhooks/github',
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_ANIMA_REPLAY' => 'true',
+                'HTTP_X_HUB_SIGNATURE_256' => 'totally_bogus_signature',
+            ],
+            $rawJson
+        );
+
+        $response->assertStatus(401)
+            ->assertJson(['error' => 'Invalid signature']);
+    }
 }
