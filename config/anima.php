@@ -121,13 +121,17 @@ return [
         ],
 
         // Note: filtered queries (search/tag/status) against the Redis driver
-        // scan the entire index and degrade linearly with entry count, since
-        // Redis has no secondary index for these fields. For large capture
+        // scan the index newest-first and degrade with entry count, since
+        // Redis has no secondary index for these fields. max_filter_scan caps
+        // that cost, so a filtered query over a very large capture history may
+        // only search the most recent max_filter_scan entries (the response's
+        // "truncated" flag reports when this happened). For large capture
         // histories with heavy filtered querying, prefer "database"/"sqlite".
         'redis' => [
             'connection' => env('ANIMA_REDIS_CONNECTION', 'default'),
             'prefix' => env('ANIMA_REDIS_PREFIX', 'anima:entries'),
             'ttl' => env('ANIMA_REDIS_TTL', 86400),
+            'max_filter_scan' => env('ANIMA_REDIS_MAX_FILTER_SCAN', 5000),
         ],
     ],
 ];

@@ -197,6 +197,7 @@ class DatabaseStorageDriver implements PayloadStorageInterface
             'per_page' => (int) $perPage,
             'current_page' => $page,
             'last_page' => max(1, $lastPage),
+            'truncated' => false,
         ];
     }
 

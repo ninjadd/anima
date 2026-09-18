@@ -8,16 +8,24 @@ use Illuminate\Support\Str;
 class RedisStorageDriver implements PayloadStorageInterface
 {
     /**
+     * Number of index entries fetched per zrevrange() call while scanning
+     * for filter matches in paginate().
+     */
+    protected const SCAN_CHUNK_SIZE = 500;
+
+    /**
      * Create a new Redis storage driver instance.
      *
      * @param mixed $redis
      * @param string $prefix
      * @param int|null $ttl
+     * @param int $maxFilterScan
      */
     public function __construct(
         protected mixed $redis,
         protected string $prefix = 'anima:entries',
-        protected ?int $ttl = 86400
+        protected ?int $ttl = 86400,
+        protected int $maxFilterScan = 5000
     ) {}
 
     /**
@@ -165,16 +173,7 @@ class RedisStorageDriver implements PayloadStorageInterface
             || ! empty($filters['to']);
 
         if ($hasFilters) {
-            $allIds = $this->redis->zrevrange($this->getIndexKey(), 0, -1) ?: [];
-            $records = $this->fetchRecords($allIds);
-
-            $filtered = [];
-            foreach ($allIds as $id) {
-                $record = $records[(string) $id] ?? null;
-                if ($record && $this->matchesFilters($record, $filters)) {
-                    $filtered[] = $record;
-                }
-            }
+            [$filtered, $truncated] = $this->scanForMatches($filters);
 
             $total = count($filtered);
             $offset = ($page - 1) * $perPage;
@@ -187,6 +186,7 @@ class RedisStorageDriver implements PayloadStorageInterface
                 'per_page' => (int) $perPage,
                 'current_page' => $page,
                 'last_page' => max(1, $lastPage),
+                'truncated' => $truncated,
             ];
         }
 
@@ -212,7 +212,59 @@ class RedisStorageDriver implements PayloadStorageInterface
             'per_page' => (int) $perPage,
             'current_page' => $page,
             'last_page' => max(1, $lastPage),
+            'truncated' => false,
         ];
+    }
+
+    /**
+     * Scan the index newest-first in bounded chunks, collecting records that
+     * match the given filters, until either the index is exhausted or
+     * maxFilterScan ids have been examined. Redis has no secondary index for
+     * these fields, so a filtered query has no way to know whether a
+     * candidate matches without fetching it; maxFilterScan bounds that cost
+     * instead of fetching the entire index on every filtered request.
+     *
+     * @param array<string, mixed> $filters
+     * @return array{0: array<int, array<string, mixed>>, 1: bool} [matches, truncated]
+     */
+    protected function scanForMatches(array $filters): array
+    {
+        $filtered = [];
+        $scanned = 0;
+        $truncated = false;
+        $start = 0;
+
+        while (true) {
+            $stop = $start + self::SCAN_CHUNK_SIZE - 1;
+            $chunk = $this->redis->zrevrange($this->getIndexKey(), $start, $stop) ?: [];
+
+            if (empty($chunk)) {
+                break;
+            }
+
+            $records = $this->fetchRecords($chunk);
+            foreach ($chunk as $id) {
+                $record = $records[(string) $id] ?? null;
+                if ($record && $this->matchesFilters($record, $filters)) {
+                    $filtered[] = $record;
+                }
+            }
+
+            $scanned += count($chunk);
+            $start += self::SCAN_CHUNK_SIZE;
+
+            if (count($chunk) < self::SCAN_CHUNK_SIZE) {
+                // Reached the end of the index.
+                break;
+            }
+
+            if ($scanned >= $this->maxFilterScan) {
+                $truncated = true;
+                break;
+            }
+        }
+
+        return [$filtered, $truncated];
     }
 
     /**
