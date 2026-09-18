@@ -3,7 +3,7 @@
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
 [![Latest Tag](https://img.shields.io/github/v/tag/ninjadd/anima?label=tag&style=flat-square)](https://github.com/ninjadd/anima/tags)
 [![Total Downloads](https://img.shields.io/packagist/dt/scry/anima.svg?style=flat-square)](https://packagist.org/packages/scry/anima)
-[![Tests Passing](https://img.shields.io/badge/Tests-44%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
+[![Tests Passing](https://img.shields.io/badge/Tests-65%20Passing-emerald.svg?style=flat-square)](https://github.com/ninjadd/anima)
 [![License](https://img.shields.io/github/license/ninjadd/anima?style=flat-square)](LICENSE)
 [![Laravel Support](https://img.shields.io/badge/Laravel-10_%7C_11_%7C_12_%7C_13%2B-red.svg?style=flat-square)](https://laravel.com)
 [![PHP Version](https://img.shields.io/badge/PHP-8.2_%7C_8.3_%7C_8.4_%7C_8.5-blue.svg?style=flat-square)](https://php.net)
@@ -66,12 +66,14 @@ Designed for modern API development, Anima includes built-in cryptographic signa
 ### 4. Swappable Polymorphic Storage Drivers
 - **Database Driver (`database`):** Stores webhook events in your primary database connection with configurable table names and timestamp indexing.
 - **Isolated SQLite Driver (`sqlite`):** Automatically provisions an isolated SQLite database file and schema without modifying host application migrations.
-- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration. Known limitation: filtered queries (search/tag/status) scan the full index and degrade linearly with entry count, since Redis has no secondary index for these fields — prefer the Database or SQLite driver for large capture histories with heavy filtered querying.
+- **Redis Driver (`redis`):** High-speed temporal storage utilizing Redis Hashes and Sorted Sets with automatic TTL key expiration. Known limitation: filtered queries (search/tag/status) scan the index newest-first and degrade with entry count, since Redis has no secondary index for these fields. `storage.redis.max_filter_scan` bounds that cost by capping how many recent entries a filtered query will scan (the API response's `truncated` flag reports when a query hit that cap) — prefer the Database or SQLite driver for large capture histories with heavy filtered querying.
 
 ### 5. Embedded Vue 3 & Monaco Editor Workbench
 - **Split-Pane Architecture:** Left-pane scrollable event feed paired with a right-pane request/response inspection studio.
 - **Monaco JSON Editor:** Full VS Code editing experience with syntax highlighting, automatic JSON formatting, and reactive document synchronization.
 - **Replay Result Slide-Over:** Real-time modal detailing synthetic response status codes, execution durations, and formatted payload viewers with copy-to-clipboard actions.
+- **Live-Updating Feed:** The dashboard polls for newly captured webhooks (interval configurable via `poll_interval`, disable with `0`) and reflects real connection health in the header — "Listening for Webhooks" while polling succeeds, "Reconnecting…" if it starts failing.
+- **Shareable, Deep-Linkable Entries:** Selecting an event updates the URL (`/anima/{id}`), so refreshing, sharing a link, or using browser back/forward returns to the same entry instead of resetting to the first page.
 
 ### 6. Request Context & Header Inspector
 - **Dynamic Header Manipulation:** Add, edit, remove, and reset request headers before triggering synthetic replays.
@@ -165,6 +167,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Live Feed Polling
+    |--------------------------------------------------------------------------
+    | How often (in seconds) the dashboard polls for newly captured entries
+    | while viewing the default, unfiltered first page. Set to 0 to disable
+    | polling and rely on manual refresh only.
+    */
+    'poll_interval' => env('ANIMA_POLL_INTERVAL', 8),
+
+    /*
+    |--------------------------------------------------------------------------
     | Redacted Headers
     |--------------------------------------------------------------------------
     | Header names whose values should be replaced with "[REDACTED]".
@@ -225,6 +237,7 @@ return [
             'connection' => env('ANIMA_REDIS_CONNECTION', 'default'),
             'prefix' => env('ANIMA_REDIS_PREFIX', 'anima:entries'),
             'ttl' => env('ANIMA_REDIS_TTL', 86400),
+            'max_filter_scan' => env('ANIMA_REDIS_MAX_FILTER_SCAN', 5000),
         ],
     ],
 ];
@@ -413,7 +426,7 @@ Run the PHPUnit test suite:
 ./vendor/bin/phpunit
 ```
 
-All 47 tests (223 assertions) verify:
+All 65 tests (270 assertions) verify:
 - Storage drivers (`DatabaseStorageDriver`, `SqliteStorageDriver`, `RedisStorageDriver`) and `StorageManager`.
 - Webhook capture middleware with route tags and synthetic replay loop prevention.
 - Kernel request synthesizer in-memory dispatch, metric tracking, and request singleton restoration.
